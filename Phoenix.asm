@@ -17,34 +17,47 @@
 ForegroundScreen       .EQU $4000       ;32*26 bytes for the foreground screen
 
 ; General storage.
-M4350                  .EQU $4350
-M4351                  .EQU $4351
-M4352                  .EQU $4352
-M4353                  .EQU $4353
-M4354                  .EQU $4354
-M4355                  .EQU $4355
-M4356                  .EQU $4356
-M4357                  .EQU $4357
-M4358                  .EQU $4358
-M4359                  .EQU $4359
-M435A                  .EQU $435A
-M435B                  .EQU $435B
-M435E                  .EQU $435E
+; Alien-formation attack controller data:
+; Drives when and how aliens break out of the base formation to fly their "closed loop" swooping attack patterns.
+; The whole structure (`$4350`–`$437F`) is zeroed at level init by the routine at `$32B0`,
+; and it's serviced every frame by a 7 way state machine dispatched through the jump table `T3018` (indexed by `Counter93`),
+; with each handler reading/updating the behavior state in `$4350`.
+M4350                  .EQU $4350       ;Alien behavior state (the state-machine variable, values 0–6)
+M4351                  .EQU $4351       ;MSB of next closed loop pattern (into the `T2Exx` / `T3330` pattern tables)
+M4352                  .EQU $4352       ;LSB of next closed loop pattern (into the `T2Exx` / `T3330` pattern tables)
+M4353                  .EQU $4353       ;Number of aliens doing the closed loop pattern (how many attackers)
+M4354                  .EQU $4354       ;LSB pointer to the currently selected lead attacking alien (`$4B50`/`$4B72` grid slot)
+M4355                  .EQU $4355       ;Delay counter before the next attack is armed (→ behavior state 1)
+M4356                  .EQU $4356       ;Rotating 0–15 "movement start" index (from `$4395`) used to sync aliens
+M4357                  .EQU $4357       ;Attack-cycle/escalation counter (0–3); scales attacker count and difficulty
+M4358                  .EQU $4358       ;Inter-step timer for the angry downward-push movement pattern
+M4359                  .EQU $4359       ;Staggered group countdown timer 1 for phased alien launches
+M435A                  .EQU $435A       ;Staggered group countdown timer 2 for phased alien launches
+M435B                  .EQU $435B       ;Staggered group countdown timer 3 for phased alien launches
+
+; Flags and counter
+M435E                  .EQU $435E       ;Flag for: 'AliensLeft < 5' ($FF)
 M435F                  .EQU $435F       ;8 bit counter for alien movement
-PlayerMoved            .EQU $4360       ;Flag for: 'player moved' ($FF)
-BulletTriggered        .EQU $4361       ;Flag for: 'bullet triggered' ($30) and counter
-M4362                  .EQU $4362       ;Player shield animation counter
-ParticleExplosion      .EQU $4363       ;Flag for: 'particle explosion start' and animation counter
-M4364                  .EQU $4364
-M4366                  .EQU $4366
+PlayerMoved            .EQU $4360       ;Flag for: 'Player moved' ($FF)
+BulletTriggered        .EQU $4361       ;Flag for: 'Bullet triggered' ($30) and counter
+M4362                  .EQU $4362       ;Flag for: 'Player shield active' and animation counter
+ParticleExplosion      .EQU $4363       ;Flag for: 'Particle explosion start' and animation counter
+M4364                  .EQU $4364       ;Flag for: 'Enemy hit detected' ($FF) and counter
+M4366                  .EQU $4366       ;Flag for: 'Mothership or bird wing hit detected' ($FF)
 M4367                  .EQU $4367       ;Flag for: 'Mothership partially faded in' ($FF)
-M4368                  .EQU $4368
-M4369                  .EQU $4369       ;Flag for:'bonus explosion' ($FF)
-M436A                  .EQU $436A
-M436B                  .EQU $436B       ;Flag for: 'mother ship score display' ($FF) and counter
-M436D                  .EQU $436D
-M436E                  .EQU $436E
-M436F                  .EQU $436F
+M4368                  .EQU $4368       ;Maturity of the birds. From 'egg' over 'no wings' to 'adult' ($01 to $0F)
+M4369                  .EQU $4369       ;Flag for: 'Bonus explosion' ($FF)
+M436A                  .EQU $436A       ;Flag for: 'Bonus live added' ($FF) and counter
+M436B                  .EQU $436B       ;Flag for: 'Mother ship score display' ($FF) and counter
+
+; Shape of the next bird attack:
+; `$436D` says where they enter,
+; `$436E` says how many birds,
+; `$436F` adds the random variation that keeps successive waves from being identical.
+; All three are recomputed by `L3560` each time a new bird group is dispatched.
+M436D                  .EQU $436D       ;Horizontal start position of the bird group
+M436E                  .EQU $436E       ;Bird count / formation-size for the wave
+M436F                  .EQU $436F       ;Per-wave random variation seed
 M4370                  .EQU $4370
 M4371                  .EQU $4371
 M4372                  .EQU $4372
