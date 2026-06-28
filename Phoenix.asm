@@ -43,6 +43,7 @@ BulletTriggered        .EQU $4361       ;Flag for: 'Bullet triggered' ($30) and 
 M4362                  .EQU $4362       ;Flag for: 'Player shield active' and animation counter
 ParticleExplosion      .EQU $4363       ;Flag for: 'Particle explosion start' and animation counter
 M4364                  .EQU $4364       ;Flag for: 'Enemy hit detected' ($FF) and counter
+
 M4366                  .EQU $4366       ;Flag for: 'Mothership or bird wing hit detected' ($FF)
 M4367                  .EQU $4367       ;Flag for: 'Mothership partially faded in' ($FF)
 M4368                  .EQU $4368       ;Maturity of the birds. From 'egg' over 'no wings' to 'adult' ($01 to $0F)
@@ -58,17 +59,24 @@ M436B                  .EQU $436B       ;Flag for: 'Mother ship score display' (
 M436D                  .EQU $436D       ;Horizontal start position of the bird group
 M436E                  .EQU $436E       ;Bird count / formation-size for the wave
 M436F                  .EQU $436F       ;Per-wave random variation seed
-M4370                  .EQU $4370
-M4371                  .EQU $4371
-M4372                  .EQU $4372
-M4373                  .EQU $4373
-M4374                  .EQU $4374
-M4378                  .EQU $4378       ;Animation counter for the bonus explosion
-M4379                  .EQU $4379       ;First two digits of BCD score value for the bonus explosion (last digit is ever 0)
-M437A                  .EQU $437A
-M437B                  .EQU $437B
-M437C                  .EQU $437C
-M4380                  .EQU $4380
+
+M4370                  .EQU $4370       ;Explosion slot0 animation index
+M4371                  .EQU $4371       ;Explosion slot0 BCD score value (last digit is ever 0)
+M4372                  .EQU $4372       ;Explosion slot0 MSB screen ram
+M4373                  .EQU $4373       ;Explosion slot0 LSB screen ram
+M4374                  .EQU $4374       ;Explosion slot1 animation index
+M4375                  .EQU $4375       ;Explosion slot1 BCD score value (last digit is ever 0)
+M4376                  .EQU $4376       ;Explosion slot1 MSB screen ram
+M4377                  .EQU $4377       ;Explosion slot1 LSB screen ram
+M4378                  .EQU $4378       ;Bonus explosion slot0 animation index
+M4379                  .EQU $4379       ;Bonus explosion slot0 BCD score value (last digit is ever 0)
+M437A                  .EQU $437A       ;Bonus explosion slot0 MSB screen ram
+M437B                  .EQU $437B       ;Bonus explosion slot0 LSB screen ram
+M437C                  .EQU $437C       ;Bonus explosion slot1 animation index
+M437D                  .EQU $437D       ;Bonus explosion slot1 BCD score value (last digit is ever 0)
+M437E                  .EQU $437E       ;Bonus explosion slot1 MSB screen ram
+M437F                  .EQU $437F       ;Bonus explosion slot1 LSB screen ram
+M4380                  .EQU $4380       ;Ever set to 0 (prevents overflow)
 Score1high             .EQU $4381       ;Player 1 score BCD (high)
 Score1mid              .EQU $4382       ;Player 1 score BCD (mid)
 Score1low              .EQU $4383       ;Player 1 score BCD (low)
@@ -77,60 +85,61 @@ Score2high             .EQU $4385       ;Player 2 score BCD (high)
 Score2mid              .EQU $4386       ;Player 2 score BCD (mid)
 Score2low              .EQU $4387       ;Player 2 score BCD (low)
 M4388                  .EQU $4388       ;Ever set to 0 (prevents overflow)
-HiScorehigh            .EQU $4389
-HiScoremid             .EQU $438A
-HiScorelow             .EQU $438B
-SoundControlA          .EQU $438C
-SoundControlB          .EQU $438D
-M438E                  .EQU $438E
-CoinCount              .EQU $438F
-Player1Lives           .EQU $4390
-Player2Lives           .EQU $4391
-M4392                  .EQU $4392
-Counter93              .EQU $4393
-M4394                  .EQU $4394
-M4395                  .EQU $4395
-M4396                  .EQU $4396
-M4397                  .EQU $4397
-M4398                  .EQU $4398
-M4399                  .EQU $4399
-Counter9A              .EQU $439A
-M439B                  .EQU $439B
-M439C                  .EQU $439C
-M439D                  .EQU $439D
-M439E                  .EQU $439E
-M439F                  .EQU $439F
-IN0Current             .EQU $43A0
-IN0Previous            .EQU $43A1
-GameOrAttract          .EQU $43A2
-GameAndDemoOrSplash    .EQU $43A3
-GameState              .EQU $43A4
-CounterA5              .EQU $43A5
-ShieldCount            .EQU $43A6
-AnimationCounter       .EQU $43A7
-M43A8                  .EQU $43A8
-M43A9                  .EQU $43A9
-M43AA                  .EQU $43AA
-M43AB                  .EQU $43AB
-M43AC                  .EQU $43AC
-M43AD                  .EQU $43AD
-M43AE                  .EQU $43AE
-M43AF                  .EQU $43AF
-M43B0                  .EQU $43B0
-M43B1                  .EQU $43B1
-M43B2                  .EQU $43B2
-M43B3                  .EQU $43B3
-CounterB4              .EQU $43B4
-M43B5                  .EQU $43B5
-M43B6                  .EQU $43B6
-LevelAndRound          .EQU $43B8
-CounterB9              .EQU $43B9
-AliensLeft             .EQU $43BA
-BirdsLeft              .EQU $43BB
-M43BC                  .EQU $43BC
-M43BD                  .EQU $43BD
-BonusLivesAt           .EQU $43BE
-M43BF                  .EQU $43BF
+HiScorehigh            .EQU $4389       ;Hi score BCD (high)
+HiScoremid             .EQU $438A       ;Hi score BCD (mid)
+HiScorelow             .EQU $438B       ;Hi score BCD (low)
+SoundControlA          .EQU $438C       ;RAM copy of sound device control register A (0x6000)
+SoundControlB          .EQU $438D       ;RAM copy of sound device control register B (0x6800)
+M438E                  .EQU $438E       ;Bird-wave background-sound phase (advances the melody, low bit drives SoundControlB)
+CoinCount              .EQU $438F       ;Number of coins inserted (max is 9)
+Player1Lives           .EQU $4390       ;Player 1 number of lives
+Player2Lives           .EQU $4391       ;Player 2 number of lives
+M4392                  .EQU $4392       ;Ever set to 0 ?
+Counter93              .EQU $4393       ;Free running counter during playtime at game level 3
+M4394                  .EQU $4394       ;Start value list pointer for alien movement MSB
+M4395                  .EQU $4395       ;Start value list pointer for alien movement LSB
+M4396                  .EQU $4396       ;Bird-wave background-sound step timer (counts frames per tone vs `T3DE0` duration)
+M4397                  .EQU $4397       ;Score "dirty" flag — `0` means score changed this frame -> redraw the digits
+M4398                  .EQU $4398       ;16 bit counter (MSB) actual index for slow print at intro splash
+M4399                  .EQU $4399       ;16 bit counter (LSB) actual index for slow print at intro splash
+Counter9A              .EQU $439A       ;16 bit counter (MSB) for animation
+M439B                  .EQU $439B       ;16 bit counter (LSB) for animation and next index for slow print at intro splash
+M439C                  .EQU $439C       ;Spiral-fill animation step counter (level 4/6/8 inter-wave fade-in)
+M439D                  .EQU $439D       ;Fist two digits of BCD score value for mothership explosion
+M439E                  .EQU $439E       ;Mapped player ship position, left part: ($09 to $C0)
+M439F                  .EQU $439F       ;Mapped player ship position, right part: ($17 to $C8)
+IN0Current             .EQU $43A0       ;Current value of IN0: bit0='coin', bit1='1 player', bit2='2 players', bit4='fire', bit5='right', bit6='left', bit7='shield'
+IN0Previous            .EQU $43A1       ;Previous value of IN0
+GameOrAttract          .EQU $43A2       ;Attract mode=0, One player game mode=1, Two players game mode=2
+GameAndDemoOrSplash    .EQU $43A3       ;Game and demo for player 1=0, Game for player 2=1, Intro splash=2
+GameState              .EQU $43A4       ;Game state=0 - 7
+CounterA5              .EQU $43A5       ;8 bit counter (e.g.: score flash time)
+ShieldCount            .EQU $43A6       ;Counts shield time and controls shield picture. Shields end at C0.
+AnimationCounter       .EQU $43A7       ;For mothership's antenna and the alien pilot animation
+M43A8                  .EQU $43A8       ;Temporary storage (MSB of pointer to table $1860)
+M43A9                  .EQU $43A9       ;Temporary storage (LSB of pointer to table $1860)
+M43AA                  .EQU $43AA       ;Mothership-wave frame counter (times antenna/pilot animation and star scroll)
+M43AB                  .EQU $43AB       ;Counter value for (2x2) planets
+M43AC                  .EQU $43AC       ;
+M43AD                  .EQU $43AD       ;
+M43AE                  .EQU $43AE       ;
+M43AF                  .EQU $43AF       ;
+M43B0                  .EQU $43B0       ;
+M43B1                  .EQU $43B1       ;
+M43B2                  .EQU $43B2       ;MSB of pointer to table T1C00 or T1D00 or T1F00
+M43B3                  .EQU $43B3       ;LSB of pointer to table T1C00 or T1D00 or T1F00
+CounterB4              .EQU $43B4       ;8 bit counter (stars scrolling down, aliens fade in time)
+M43B5                  .EQU $43B5       ;Reserved/unused byte always `$FF`
+M43B6                  .EQU $43B6       ;End-of-wave countdown timer that advances the game to the next level/round
+
+LevelAndRound          .EQU $43B8       ;Bit0 - 3: game level, bit4 - 7: game round
+CounterB9              .EQU $43B9       ;8 bit backwards counter
+AliensLeft             .EQU $43BA       ;Number of aliens left in wave (16 at new)
+BirdsLeft              .EQU $43BB       ;Number of birds left in wave (8 at new)
+M43BC                  .EQU $43BC       ;Reserved/unused byte
+M43BD                  .EQU $43BD       ;
+BonusLivesAt           .EQU $43BE       ;Bonus lives (at 30K, 40K, 50K or 60K) from DIP switch settings
+M43BF                  .EQU $43BF       ;
 
 ; Player and player bullets, data structure (grid).
 PlayerState            .EQU $43C0       ;Player ship control state register
@@ -177,10 +186,10 @@ PlayerBulletMSB        .EQU $43E4       ;MSB screen ram: Player bullet
 PlayerBulletLSB        .EQU $43E5       ;LSB screen ram: Player bullet
 AbovePlayerBulletMSB   .EQU $43E6       ;MSB screen ram: One character above player bullet
 AbovePlayerBulletLSB   .EQU $43E7       ;LSB screen ram: One character above player bullet
-M43E8                  .EQU $43E8
-M43E9                  .EQU $43E9
-M43EA                  .EQU $43EA
-M43EB                  .EQU $43EB
+M43E8                  .EQU $43E8       ;?
+M43E9                  .EQU $43E9       ;?
+M43EA                  .EQU $43EA       ;
+M43EB                  .EQU $43EB       ;
 
 ; Alien and bird bullets, data structure (screen ram).
 OldAlienBullet0MSB     .EQU $43EC       ;Old MSB screen ram: Enemy bullet 0
@@ -447,25 +456,27 @@ M4BEF                  .EQU $4BEF       ;LSB screen ram adress alienF
 
 ; Bird extended storage
 ; Used for all levels with the 8 birds.
-B4BC0                  .EQU $4BC0
-B4BC1                  .EQU $4BC1
-B4BC2                  .EQU $4BC2
-B4BC3                  .EQU $4BC3
-B4BC4                  .EQU $4BC4
-B4BC5                  .EQU $4BC5
-B4BD1                  .EQU $4BD1
-B4BD2                  .EQU $4BD2
-B4BD3                  .EQU $4BD3
-B4BD4                  .EQU $4BD4
-B4BD5                  .EQU $4BD5
-B4BD6                  .EQU $4BD6
-B4BD7                  .EQU $4BD7
-B4BED                  .EQU $4BED
-B4BEE                  .EQU $4BEE
-B4BEF                  .EQU $4BEF
+B4BC0                  .EQU $4BC0       ;
+B4BC1                  .EQU $4BC1       ;
+B4BC2                  .EQU $4BC2       ;
+B4BC3                  .EQU $4BC3       ;
+B4BC4                  .EQU $4BC4       ;
+B4BC5                  .EQU $4BC5       ;
+
+B4BD1                  .EQU $4BD1       ;
+B4BD2                  .EQU $4BD2       ;
+B4BD3                  .EQU $4BD3       ;
+B4BD4                  .EQU $4BD4       ;
+B4BD5                  .EQU $4BD5       ;
+B4BD6                  .EQU $4BD6       ;
+B4BD7                  .EQU $4BD7       ;
+
+B4BED                  .EQU $4BED       ;
+B4BEE                  .EQU $4BEE       ;
+B4BEF                  .EQU $4BEF       ;
 
 ; Stack
-Stack                  .EQU $4BF0
+Stack                  .EQU $4BF0       ;Stack space 4BF0:4BFF
 
 ;HW
 videoRegister          .EQU $5000       ;Lower bit selects the RAM bank
@@ -7771,45 +7782,48 @@ L3ABF:
                        RET                         
 
                        .ORG $3AD0
-;
+;*****************************************************************************
+;* Background sound for the bird waves.
+;* Sound data from T3DE0.
+;*****************************************************************************
 L3AD0:
-                       LD      HL,M438E            ; 
-                       LD      A,(HL)              
-                       AND     $01                 
+                       LD      HL,M438E            ; Bird-wave background-sound phase
+                       LD      A,(HL)              ; 
+                       AND     $01                 ; 0000_0001 phase bit
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       OR      $20                 
-                       LD      B,A                 
-                       DEC     L                   
-                       LD      A,(HL)              
-                       AND     $C0                 
-                       OR      B                   
-                       LD      (HL),A              
-                       LD      L,$96               
-                       LD      A,(HL)              
-                       INC     (HL)                
+                       OR      $20                 ; 0010_0000
+                       LD      B,A                 ; 
+                       DEC     L                   ; 
+                       LD      A,(HL)              ; $438D SoundControlB
+                       AND     $C0                 ; 1100_0000
+                       OR      B                   ; set bits
+                       LD      (HL),A              ; at SoundControlB
+                       LD      L,$96               ; $4396 bird-wave background-sound step timer
+                       LD      A,(HL)              ; 
+                       INC     (HL)                ; 
                        AND     A                   ; updates the zero flag
                        JP      Z,L3AF8             ; 
                        LD      A,(M4BD6)           ; 
-                       ADD     $E0                 ; LSB of table T3DE0
-                       LD      E,A                 
-                       LD      D,$3D               ; MSB of table T3DE0
-                       LD      A,(DE)              
-                       CP      (HL)                
-                       RET     NC                  
-                       LD      (HL),$00            
-                       RET                         
+                       ADD     $E0                 ; LSB of table T3DE0 Background sound data for the bird waves.
+                       LD      E,A                 ; 
+                       LD      D,$3D               ; MSB of table T3DE0 Background sound data for the bird waves.
+                       LD      A,(DE)              ; 
+                       CP      (HL)                ; 
+                       RET     NC                  ; 
+                       LD      (HL),$00            ; 
+                       RET                         ; 
 
                        .ORG $3AF8
 ;
 L3AF8:
-                       LD      L,$8E               
-                       INC     (HL)                
-                       DEC     L                   
-                       LD      A,(HL)              
-                       OR      $10                 
-                       LD      (HL),A              
-                       RET                         
+                       LD      L,$8E               ; $438E Bird-wave background-sound phase/state
+                       INC     (HL)                ; advance the tone phase
+                       DEC     L                   ; SoundControlB
+                       LD      A,(HL)              ; 
+                       OR      $10                 ; set 0001_0000
+                       LD      (HL),A              ; at SoundControlB
+                       RET                         ; 
 
                        .ORG $3B02
 ;
