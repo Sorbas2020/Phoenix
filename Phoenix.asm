@@ -119,15 +119,15 @@ AnimationCounter       .EQU $43A7       ;For mothership's antenna and the alien 
 M43A8                  .EQU $43A8       ;Temporary storage (MSB of pointer to table $1860)
 M43A9                  .EQU $43A9       ;Temporary storage (LSB of pointer to table $1860)
 M43AA                  .EQU $43AA       ;Mothership-wave frame counter (times antenna/pilot animation and star scroll)
-M43AB                  .EQU $43AB       ;Counter value for (2x2) planets
-M43AC                  .EQU $43AC       ;
-M43AD                  .EQU $43AD       ;
-M43AE                  .EQU $43AE       ;
-M43AF                  .EQU $43AF       ;
-M43B0                  .EQU $43B0       ;
-M43B1                  .EQU $43B1       ;
-M43B2                  .EQU $43B2       ;MSB of pointer to table T1C00 or T1D00 or T1F00
-M43B3                  .EQU $43B3       ;LSB of pointer to table T1C00 or T1D00 or T1F00
+M43AB                  .EQU $43AB       ;Counter for planet trigger
+M43AC                  .EQU $43AC       ;Planet vertical spacing increment (added to trigger `$43AB`)
+M43AD                  .EQU $43AD       ;Planet X index -> `T1E60` (screen-RAM LSB), incremented per planet
+M43AE                  .EQU $43AE       ;Planet X index -> `T1E20` (screen-RAM MSB), incremented per planet
+M43AF                  .EQU $43AF       ;`CounterB9` trigger for the next galaxy
+M43B0                  .EQU $43B0       ;Galaxy spacing decrement (subtracted from `$43AF`)
+M43B1                  .EQU $43B1       ;Galaxy X index -> `T1E80`, incremented per galaxy
+M43B2                  .EQU $43B2       ;MSB pointer into the background pattern tables `T1C00`/`T1D00`/`T1F00`
+M43B3                  .EQU $43B3       ;LSB pointer into the background pattern tables `T1C00`/`T1D00`/`T1F00`
 CounterB4              .EQU $43B4       ;8 bit counter (stars scrolling down, aliens fade in time)
 M43B5                  .EQU $43B5       ;Reserved/unused byte always `$FF`
 M43B6                  .EQU $43B6       ;End-of-wave countdown timer that advances the game to the next level/round
@@ -504,7 +504,10 @@ L0000:
                        LD      HL,T1800            ; Screen draw info
                        LD      C,$03               ; 3 columns (rotated to 3 rows)
                        CALL    PrintTextLines      ; Draw the first 3 rows of the background (scores and coins)
-; Main loop begin
+
+;*****************************************************************************
+;* Main loop begin
+;*****************************************************************************
 MainLoop:
                        CALL    WaitVBlankCoin      ; Wait for VBlank and count any coins
                        LD      A,(GameOrAttract)   ;
@@ -1233,13 +1236,17 @@ L03CE:
                        JP      GameStateMachine    ;
 
                        .ORG $03E2
-; Used for changing the game demo level at attract mode.
+;*****************************************************************************
+;* Changing the game demo level at attract mode.
+;*****************************************************************************
 L03E2:
                        LD      BC,$0108            ; Next interval game state is 1, set LevelAndRound to 1st round, level 8 (mothership wave)
                        LD      DE,$1000            ; set AliensLeft to 1 and BirdsLeft to 0 ?
                        JP      L03F1               ; 
 
-; Used for changing the game demo level at attract mode.
+;*****************************************************************************
+;* Changing the game demo level at attract mode.
+;*****************************************************************************
 L03EB:
                        LD      BC,$0104            ;
                        LD      DE,$0008            ;
@@ -1381,6 +1388,9 @@ L0492:
                        RET                         ;
 
                        .ORG $04A0
+;*****************************************************************************
+;* Changing the player at attract mode.
+;*****************************************************************************
 L04A0:
                        LD      L,$A3               ; set GameAndDemoOrSplash
                        LD      (HL),$01            ; to 'Game for player 2'
@@ -1447,7 +1457,10 @@ L04FB:
                        JP      NZ,L04FB            ; ..until
                        RET                         ; ..done
 
-;
+;*****************************************************************************
+;* Clear $4392 to $4397 and
+;* init start value list pointer for alien movement MSB $4394
+;*****************************************************************************
 L0506:
                        LD      HL,M4392            ;
                        LD      B,$06               ; number of bytes to clear
@@ -1658,6 +1671,9 @@ T063A:
                        .DB T15C0 & $FF, T15A0 & $FF, T1580 & $FF, T1580 & $FF, T1580 & $FF, T1580 & $FF, $FF, $FF
 
                        .ORG $0650
+;*****************************************************************************
+;* Copy init values for 16 aliens to $4B50-$4B6F (Pointer to alien movement pattern)
+;*****************************************************************************
 L0650:
                        LD      HL,T1520            ;
                        LD      A,(LevelAndRound)   ;
@@ -1770,13 +1786,18 @@ AddPlanetsToBackground:
                        LD      L,(HL)              ;
                        CALL    L07DC               ; draw the characters at background
                        RET                         ;
-;
+
+;*****************************************************************************
+;* Print score column
+;*****************************************************************************
 L06E8:
                        LD      HL,T1800            ; base addr. table for 'screen ram adresses and static texts'
                        LD      C,$01               ; 1 column (rotated to 1 row)
                        JP      PrintTextLines      ;
 
-; Update scroll register and fill background
+;*****************************************************************************
+;* Update scroll register and fill background
+;*****************************************************************************
 L06F0:
                        CALL    StarsScrollDown     ;
                        CALL    AddGalaxiesToBackground
@@ -1785,7 +1806,7 @@ L06F0:
                        .ORG $0700
 ;*****************************************************************************
 ;* Controller for player data structure.
-;* Handles: PlayerState, $43E0, PlayerBulletState, $43E4, AbovePlayerBulletState, $43E8
+;* Handles: PlayerState, OldPlayerShipMSB, PlayerBulletState, PlayerBulletMSB, AbovePlayerBulletState, $43E8
 ;*****************************************************************************
 PlayerDataController:
                        LD      BC,PlayerState      ; Player data structure (grid)
@@ -2068,6 +2089,9 @@ L07DC:
                        RET                         ;
 
                        .ORG $07F0
+;*****************************************************************************
+;* Reset scroll register for background at score flash
+;*****************************************************************************
 L07F0:
                        LD      A,(CounterB9)       ;
                        LD      (scrollRegister),A  ; 58xx scroll register
@@ -2187,6 +2211,9 @@ L088B:
                        RET                         ;
 
                        .ORG $08A0
+;*****************************************************************************
+;* Update player position, bullet and shield
+;*****************************************************************************
 L08A0:
                        CALL    MovePlayer          ;
                        LD      HL,PlayerBulletState
@@ -2435,7 +2462,8 @@ T0A00:
                        .DW ForegroundScreen+$40
                        .DW ForegroundScreen+$20
                        .DW ForegroundScreen       ; Upper right corner of rotated screen
-; not used ?
+
+; Mapping the 'out of screen' objects
                        .DB $00, $00
                        .DB $00, $00
                        .DB $00, $00
@@ -2452,6 +2480,10 @@ T0A48:
                        .ORG $0A50
 ;*****************************************************************************
 ;* Handle alien control states for all aliens.
+;* This routine has a bug!
+;* Loop goes 20 times for 16 aliens. But bit 3 or 4 is not set at
+;* UpdateScreenObjects. So luckily no effect.
+;* Possible fix would be: 'CP $F0' at $0A63.
 ;*****************************************************************************
 AlienDataController:
                        LD      BC,M4B70            ; alien data structure (grid)
@@ -2466,7 +2498,7 @@ L0A56:
                        ADD     $40                 ;
                        LD      E,A                 ;
                        LD      D,B                 ;
-                       AND     A                   ; updates the zero flag
+                       AND     A                   ; updates the zero flag (bug)
                        JP      NZ,L0A56            ;
                        RET                         ;
 
@@ -2619,7 +2651,12 @@ T0B38:
                        .DB $02, $0A
                        .DB $01, $09
                        .DB $00, $08
-;
+
+;*****************************************************************************
+;* The player shield is expired.
+;* Shield and player gets removed from screen.
+;* PlayerShipX position is reset.
+;*****************************************************************************
 ShieldsExpired:
                        CALL    DrawImageCbyB       ;
                        LD      HL,PlayerState      ;
@@ -2750,7 +2787,9 @@ L0C00:
                        JP      L0EA4               ;
 
                        .ORG $0C40
-;
+;*****************************************************************************
+; Updates the enemy bullets.
+;*****************************************************************************
 L0C40:
                        LD      HL,AlienBullet4LSB  ; 
                        LD      B,$05               
@@ -2761,6 +2800,10 @@ L0C40:
                        RET                         
 
                        .ORG $0C56
+;*****************************************************************************
+;* Enemy bullets movement and animation.
+;* Handles all 5 bullet slots.
+;*****************************************************************************
 L0C56:
                        LD      HL,AlienBullet0State; 
 L0C59:
@@ -2775,6 +2818,9 @@ L0C59:
                        RET                         
 
                        .ORG $0C6B
+;*****************************************************************************
+;* Get the screen ram address for all enemy bullets.
+;*****************************************************************************
 L0C6B:
                        LD      BC,AlienBullet0X    ; 
                        LD      DE,AlienBullet0MSB  ; 
@@ -2792,6 +2838,10 @@ L0C71:
                        RET                         
 
                        .ORG $0C84
+;*****************************************************************************
+;* Movement and animation of enemy bullet.
+;* They have half the speed of player bullets and a simple animation.
+;*****************************************************************************
 L0C84:
                        LD      A,(HL)              
                        AND     $08                 
@@ -2854,7 +2904,10 @@ L0CC4:
                        RET                         ;
 
                        .ORG $0CD8
-;
+;*****************************************************************************
+;* Handle enemy bullet control states for 5 bullet slots,
+;* and draw or delete the screen object.
+;*****************************************************************************
 L0CD8:
                        LD      BC,AlienBullet0State; data structure (grid)
                        LD      DE,OldAlienBullet0MSB; screen ram
@@ -2880,6 +2933,9 @@ L0CF4:
                        RET                         
 
                        .ORG $0D1C
+;*****************************************************************************
+;* Alien movement update.
+;*****************************************************************************
 L0D1C:
                        LD      BC,M4B70            ; 
                        LD      HL,M4B50            ; 
@@ -2946,7 +3002,9 @@ L0D5E:
                        RET                         
 
                        .ORG $0D70
-;
+;*****************************************************************************
+;* Alien animation update.
+;*****************************************************************************
 L0D70:
                        LD      BC,M4B70            ; 
                        LD      HL,M4B50            ; 
@@ -2993,6 +3051,7 @@ L0D86:
                        JP      C,L0DBB             ; 
                        RRCA                        
                        JP      C,L0DCC             ; 
+; 2nd byte of alien animation table is: $04
                        LD      A,(BC)              
                        RRCA                        
                        AND     $03                 
@@ -3001,7 +3060,7 @@ L0D86:
                        JP      L0DD2               ; 
 
                        .ORG $0DBB
-;
+; 2nd byte of alien animation table is: $01
 L0DBB:
                        LD      A,(BC)              
                        RRCA                        
@@ -3015,7 +3074,7 @@ L0DBB:
                        JP      L0DD2               ; 
 
                        .ORG $0DCC
-;
+; 2nd byte of alien animation table is: $02
 L0DCC:
                        DEC     BC                  
                        LD      A,(BC)              
@@ -3033,7 +3092,7 @@ L0DD2:
                        RET                         
 
                        .ORG $0DDE
-;
+; End of movement list reached
 L0DDE:
                        DEC     DE                  
                        DEC     DE                  
@@ -3050,7 +3109,7 @@ L0DDE:
 
                        .ORG $0DF0
 ;*****************************************************************************
-;* Alien bullet to player ship, collission detection.
+;* Player bullet to alien, collission detection.
 ;*****************************************************************************
 L0DF0:
                        LD      BC,PlayerBulletState; 
@@ -3413,14 +3472,20 @@ L0FD8:
                        JP      Draw3x2             ; 
 
                        .ORG $1000
-;?
+; Pointer table to alien movement list (T1700):
+; Value * 2 ==> LSB of T1700
+; This is the default movement pattern for the alien formation:
+; Right, right, right, right, left, left, left, left,
+; left, left, left, left, right, right, right, right,
+; end mark. Used at phase 0, 1, 2 and 3.
 T1000:
                        .DB $01, $01, $01, $01, $02, $02, $02, $02
                        .DB $02, $02, $02, $02, $01, $01, $01, $01
                        .DB $00
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF
-; Closed loops pattern table for aliens
+; Closed loop pattern table part 1:
+; Used for single or multiple aliens, depending on the game round.
 ; Pattern 1
 T1020:
                        .DB $10, $11, $12, $13, $10, $1D, $0D, $0E
@@ -3443,7 +3508,7 @@ T1064:
                        .DB $05, $05, $05, $1C, $1D, $1E, $1F, $05
                        .DB $05, $05, $05, $05, $05, $05, $18, $1F
                        .DB $00, $FF, $FF, $FF
-; Pattern 3
+; Pattern 3 (phase 3)
 T10A8:
                        .DB $10, $04, $04, $1D, $0D, $0E, $0B, $0C
                        .DB $0D, $0E, $01, $01, $01, $01, $01, $01
@@ -3590,14 +3655,14 @@ T13D0:
 ; Player ship character block shapes table
 ; used for fine bit shifting of the player
 T1400:
-                       .DB $30, $40, $31, $41     ;position 1
-                       .DB $32, $42, $33, $43     ;position 2
-                       .DB $34, $44, $35, $45     ;position 3
-                       .DB $36, $46, $37, $47     ;position 4
-                       .DB $38, $48, $39, $49     ;position 5
-                       .DB $3A, $4A, $3B, $4B     ;position 6
-                       .DB $3C, $4C, $3D, $4D     ;position 7
-                       .DB $3E, $4E, $3F, $4F     ;position 8
+                       .DB $30, $40, $31, $41     ;frame#1
+                       .DB $32, $42, $33, $43     ;frame#2
+                       .DB $34, $44, $35, $45     ;frame#3
+                       .DB $36, $46, $37, $47     ;frame#4
+                       .DB $38, $48, $39, $49     ;frame#5
+                       .DB $3A, $4A, $3B, $4B     ;frame#6
+                       .DB $3C, $4C, $3D, $4D     ;frame#7
+                       .DB $3E, $4E, $3F, $4F     ;frame#8
 
 ; Alien character block shapes table ($00=SPACE)
 T1420:
@@ -3923,8 +3988,8 @@ T15E0:
                        .DB $80, $30     ; D (two aliens at same position)
                        .DB $30, $38     ; E (two aliens at same position)
                        .DB $90, $38     ; F (two aliens at same position)
-;
-;?
+
+; Pointer table for character block shapes table (T14xx):
 T1600:
                        .DB $10, $14, $18, $1C
                        .DB $00, $04, $08, $0C
@@ -3936,11 +4001,13 @@ T1600:
                        .DB $5C, $5C, $5E, $5E
 
 ; 8 player bullets for the fine bit shifting
+; Foreground tiles (no pointer).
 T1620:
                        .DB $50, $51, $52, $53, $54, $55, $56, $57
 ;
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-;?
+
+; Pointer table for character block shapes table (T14xx):
                        .DB $48, $48, $50, $50, $4A, $4A, $52, $52, $4C, $4C, $54, $54, $4E, $4E, $56, $56
                        .DB $48, $48, $56, $56, $4E, $4E, $54, $54, $4C, $4C, $52, $52, $4A, $4A, $50, $50
                        .DB $68, $68, $6C, $6C, $70, $70, $74, $74, $78, $78, $7C, $7C, $80, $80, $84, $84
@@ -4287,12 +4354,12 @@ T1D00:
                        .DB $05, $0C, $06, $00, $04, $06, $07, $0E, $0F, $09, $00, $40, $41, $42, $43, $00, $07, $03, $0A, $08, $0D, $00, $09, $0B, $0C, $0A
 
                        .ORG $1DF0
-;
+; This is a simple protection against piracy.
 L1DF0:
-                       LD      A,(ForegroundScreen+$31D)
+                       LD      A,(ForegroundScreen+$31D) ; 'A' from 'AMSTAR ..' copyright text
                        SUB     $01                 
                        RET     Z                   
-; never called ?
+; crash the program and reset.
                        LD      (CoinCount),A       ;
                        NOP                         
                        NOP                         
@@ -5006,7 +5073,7 @@ L2351:
                        CP      $60                 
                        JP      Z,L2398             ; 
                        RET                         
-;
+; The mothership's protective shield was hit by a player bullet.
 L237B:
                        LD      A,(DE)              
                        AND     $F7                 
@@ -5054,6 +5121,7 @@ L23AC:
                        RET                         
 
                        .ORG $23C0
+; The mothership will be destroyed if an alien pilot is hit.
 L23C0:
                        DEC     L                   
                        LD      A,(HL)              
@@ -5069,7 +5137,9 @@ L23C0:
                        RET                         
 
                        .ORG $23D6
-;
+;*****************************************************************************
+;* Background sound update.
+;*****************************************************************************
 L23D6:
                        LD      HL,LevelAndRound    ; 
                        LD      A,(HL)              ;
@@ -5746,7 +5816,9 @@ UpdateSoundControlHW:
                        RET                         ;
 
                        .ORG $27BD
-;
+;*****************************************************************************
+;* Sound for player bullet or ship explosion.
+;*****************************************************************************
 L27BD:
                        LD      HL,ParticleExplosion
                        LD      A,(HL)              ;
@@ -5775,6 +5847,9 @@ L27D8:
                        RET                         
 
                        .ORG $27E2
+;*****************************************************************************
+;* Sound for player ship explosion.
+;*****************************************************************************
 L27E2:
                        CP      $40                 
                        JP      C,L27E9             ; 
@@ -5862,7 +5937,8 @@ T2B00:
                        .DB $00, $00, $20, $00, $84, $20, $00, $08, $00, $00, $00, $00, $00, $20, $01, $00
                        .DB $04, $80, $00, $00, $00, $00, $00, $10, $40, $00, $04, $01, $00, $00, $80, $00
 
-; movement pattern table for aliens
+; Closed loop pattern table part 2:
+; Used for single or multiple aliens, depending on the game round.
 ; Pattern 18
 T2C00:
                        .DB $0B, $0C, $0D, $0E, $0B, $0C, $0A, $0A, $0A, $0A, $0A, $0A, $0A, $06, $06, $1E
@@ -5877,13 +5953,13 @@ T2C34:
                        .DB $04, $1D, $0A, $06, $1E, $03, $1F, $05, $1C, $04, $1D, $06, $1E, $03, $03, $03
                        .DB $03, $15, $16, $17, $01, $01, $05, $05, $01, $01, $05, $05, $01, $01, $05, $05
                        .DB $01, $01, $05, $05, $02, $02, $18, $07, $07, $07, $00, $FF, $FF, $FF, $FF, $FF
-; Pattern 20
+; Pattern 20 (phase 3)
 T2C90:
                        .DB $1C, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1D
                        .DB $06, $06, $06, $06, $06, $06, $06, $1E, $03, $03, $03, $03, $03, $03, $1F, $05
                        .DB $05, $05, $05, $1C, $04, $04, $1D, $06, $09, $09, $09, $1E, $03, $07, $07, $08
                        .DB $08, $07, $07, $08, $07, $00, $FF, $FF
-; Pattern 21
+; Pattern 21 (phase 3)
 T2CC8:
                        .DB $05, $05, $05, $05, $1C, $04, $04, $04
                        .DB $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1D, $09, $09, $09, $09
@@ -5896,39 +5972,47 @@ T2D00:
                        .DB $04, $04, $04, $04, $1D, $06, $06, $1E, $03, $03, $03, $03, $03, $03, $1F, $05
                        .DB $05, $05, $05, $05, $1C, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1B
                        .DB $00, $FF, $FF, $FF
-; Pattern 23
+; Pattern 23 (phase 3)
 T2D44:
                        .DB $05, $05, $05, $18, $03, $03, $03, $03, $03, $03, $03, $03
                        .DB $03, $19, $06, $06, $1A, $04, $04, $1B, $05, $05, $18, $03, $03, $03, $03, $03
                        .DB $03, $03, $19, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $1A, $04, $04
                        .DB $1B, $05, $05, $1C, $04, $04, $1D, $06, $06, $1A, $04, $04, $1B, $05, $05, $05
                        .DB $05, $05, $05, $05, $00, $FF, $FF, $FF
-; Pattern 24
+; Pattern 24 (phase 3)
 T2D88:
                        .DB $1C, $04, $04, $1D, $06, $06, $09, $0A
                        .DB $0A, $09, $09, $09, $16, $17, $14, $03, $03, $03, $1F, $05, $05, $1C, $04, $04
                        .DB $1D, $06, $06, $1E, $03, $03, $03, $03, $07, $07, $08, $08, $07, $07, $05, $05
                        .DB $1C, $04, $04, $04, $04, $04, $04, $04, $1D, $1A, $04, $1B, $00, $FF, $FF, $FF
-; Pattern 25
+; Pattern 25 (phase 3)
 T2DC0:
                        .DB $14, $03, $03, $19, $06, $0A, $0A, $09, $09, $09, $0A, $12, $13, $10, $11, $12
                        .DB $13, $10, $11, $12, $13, $10, $04, $04, $04, $04, $1B, $05, $18, $03, $19, $06
                        .DB $1A, $04, $1B, $05, $18, $07, $07, $07, $08, $08, $07, $07, $07, $03, $03, $19
                        .DB $0D, $0E, $00, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-; Pattern, 26
+; Pattern 26
+; Used for all aliens.
+; This is the 'Angry movement pattern A'.
+; At the end of that sequence, the alien formation is further down
+; and the 'phase' is increased by 1.
 T2E00:
                        .DB $0B, $0C, $0D, $0E, $02, $02, $02, $02, $0B, $0C, $0D, $0E, $01, $01, $14, $15
                        .DB $16, $17, $01, $01, $05, $05, $05, $05, $02, $02, $02, $02, $00, $FF, $FF, $FF
-; Pattern, 27
+; Pattern, 27 (phase 3)
 T2E20:
                        .DB $0B, $0C, $0D, $0E, $0B, $0C, $0D, $0E, $02, $02, $02, $02, $02, $02, $02, $02
                        .DB $05, $05, $01, $05, $05, $01, $05, $05, $01, $05, $05, $01, $00, $FF, $FF, $FF
-; Pattern, 28
+; Pattern 28
+; Used for all aliens.
+; This is the 'Angry movement pattern B'.
+; At the end of that sequence, the alien formation is further down
+; and the 'phase' is increased by 1.
 T2E40:
                        .DB $0B, $0C, $0D, $0E, $01, $01, $01, $18, $03, $19, $06, $06, $1A, $04, $1B, $05
                        .DB $18, $03, $19, $06, $06, $1A, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1B
                        .DB $05, $05, $05, $01, $01, $01, $01, $01, $00, $FF, $FF, $FF
-; Pattern, 29
+; Pattern, 29 (phase 3)
 T2E6C:
                        .DB $0B, $0C, $0D, $0E
                        .DB $01, $01, $0B, $0C, $0D, $0E, $01, $01, $05, $05, $05, $05, $01, $01, $0B, $0C
@@ -5972,7 +6056,14 @@ T2FA0:
                        .DB $03, $19, $06, $06, $1A, $11, $12, $13, $02, $02, $02, $05, $05, $02, $02, $02
                        .DB $05, $05, $02, $02, $02, $05, $1C, $08, $08, $07, $07, $08, $08, $08, $00, $FF
 
-;
+;*****************************************************************************
+;* AlienBehaviorUpdate.
+;* This is the 'core of the matter'!
+;* It handles all attack patterns of the aliens
+;* and the randomization of selection.
+;* The selected patterns do always fit on the screen,
+;* even if the alien formation is further down. (phase 1, 2, 3)
+;*****************************************************************************
 L3000:
                        LD      HL,Counter93        ; 
                        LD      A,(HL)              ; load and save ram value
@@ -6004,7 +6095,9 @@ T3018:
                        .DW L322C ; if Counter93 is 6
                        .DW L3012 ; if Counter93 is 7
 
-; from jump table T3018 if Counter93 is 1
+; from jump table T3018 if Counter93 is 1.
+; Do the 'Angry movement pattern A/B' (pattern 26/28).
+; After that, the alien formation is further down on the screen.
 L3028:
                        LD      HL,M4357            ; 
                        LD      A,(HL)              
@@ -6039,7 +6132,7 @@ L3028:
                        RET                         
 
                        .ORG $305C
-;
+; End of movement pattern reached. Get the next start pointer.
 L305C:
                        CALL    L3074               ; 
                        LD      HL,M4357            ; 
@@ -6191,6 +6284,7 @@ L3112:
 
                        .ORG $3124
 ; from jump table T3018 if Counter93 is 3
+; Calculate the number of aliens in formation flying.
 L3124:
                        LD      HL,M4350            ; 
                        LD      A,(HL)              
@@ -6285,6 +6379,7 @@ L3192:
 
                        .ORG $31B4
 ; from jump table T3018 if Counter93 is 5
+; Get the next closed loop pattern.
 L31B4:
                        LD      A,(M4350)           ; 
                        CP      $03                 
@@ -6349,7 +6444,8 @@ L31D6:
                        RET                         
 
                        .ORG $3210
-;
+; Get the attack phase at B.
+; Depending on alien screen coordinate Y.
 L3210:
                        LD      A,(M4353)           ; 
                        CP      $01                 
@@ -6494,11 +6590,15 @@ L32B0:
                        JP      CopyBbytesHLtoDE    ; 
 
                        .ORG $3300
-;?
+; Mapping table for T3310.
 T3300:
                        .DB $00, $01, $02, $02, $03, $03, $03, $03
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-;?
+; Pointer table for T3330.
+; T1160, T1020, T1020, T10A8
+; T1160, T1020, T1020, T2C90...
+; The random values (0, 2, 4 or 6) are added in order to
+; address the rest of T3330.
 T3310:
                        .DB $88, $90, $98, $A0, $68, $70, $78, $80, $48, $50, $58, $60, $48, $30, $38, $40
                        .DB $88, $90, $98, $A0, $A8, $B0, $B8, $C0, $C8, $D0, $D8, $E0, $C8, $E8, $F0, $F8
@@ -7456,6 +7556,7 @@ L38BC:
                        LD      H,$3D               
                        LD      A,(HL)              
                        LD      (DE),A              
+; A bird's wing was hit
 L38E9:
                        LD      A,$FF               
                        LD      (M4366),A           ; 
@@ -7496,7 +7597,9 @@ L391C:
                        CP      $20                 
                        JP      NC,L38BC            ; 
                        RET                         
-;
+
+; Trigger the melody chip for 'Elise',
+; if flag for: 'mother ship score display' is set.
 L3923:
                        RET     Z                   
                        DEC     (HL)                
@@ -7649,7 +7752,10 @@ L3A00:
                        RET     C                   
                        POP     HL                  
                        RET                         
-;
+
+;*****************************************************************************
+;* Update all synth sounds and melody trigger data.
+;*****************************************************************************
 L3A10:
                        LD      HL,LevelAndRound    ; 
                        LD      A,(HL)              ; get it
@@ -7682,7 +7788,10 @@ L3A2C:
                        LD      L,$66               
                        LD      (HL),$00            
                        RET                         
-;
+
+;*****************************************************************************
+;* Enemy hit sound during explosion animation.
+;*****************************************************************************
 L3A40:
                        LD      L,$64               
                        LD      A,(HL)              
@@ -7707,7 +7816,9 @@ L3A4E:
                        RET                         
 
                        .ORG $3A62
-;
+;*****************************************************************************
+;* Bird wing hit sound.
+;*****************************************************************************
 L3A62:
                        LD      L,$66               
                        LD      A,(HL)              
@@ -7745,7 +7856,12 @@ L3A90:
                        LD      A,(HL)              
                        AND     A                   ; updates the zero flag
                        JP      L3923               ; 
-;
+
+;*****************************************************************************
+;* Background sound for the alien waves.
+;* At least one of the aliens is doing a closed loop pattern.
+;* Sound data is derived from alien control state B.
+;*****************************************************************************
 L3A98:
                        LD      HL,M4B70            ; 
                        LD      BC,$0800            
@@ -7826,7 +7942,10 @@ L3AF8:
                        RET                         ; 
 
                        .ORG $3B02
-;
+;*****************************************************************************
+;* Background sound for level B (mothership).
+;* Sound data is derived from Counter9A+1.
+;*****************************************************************************
 L3B02:
                        LD      HL,Counter9A        ; 
                        LD      A,(HL)              
@@ -7846,7 +7965,10 @@ L3B02:
                        RET                         
 
                        .ORG $3B1B
-;
+;*****************************************************************************
+;* Ringtone sound for the player shield.
+;* Sound data is derived from player shield animation counter.
+;*****************************************************************************
 L3B1B:
                        LD      HL,M4362            ; 
                        LD      A,(HL)              
@@ -7866,7 +7988,7 @@ L3B28:
                        RET                         
 
                        .ORG $3B33
-;
+; Play the sound for 'Bonus live added'.
 L3B33:
                        LD      HL,M436A            ; 
                        LD      A,(HL)              
@@ -7880,7 +8002,7 @@ L3B33:
                        RET                         
 
                        .ORG $3B43
-;
+; Update all synth sounds and melody triggers.
 L3B43:
                        LD      HL,GameState        ; 
                        LD      A,(HL)              ;
@@ -7894,7 +8016,7 @@ L3B43:
                        JP      L3A90               ; 
 
                        .ORG $3B60
-;?
+;? used at $3844
 T3B60:
                        .DB $1F, $7C, $F0, $01, $C0
                        .DB $07, $7F, $FC, $F0, $07, $C0, $1F, $FF, $FC, $03, $F0
@@ -7977,7 +8099,8 @@ T3DC0:
                        .DB $04, $70
                        .DB $05, $70
 
-; sinus motion like, y pos table used by big birds ?
+; Background sound data for the bird waves.
+; Slowly ascending and descending tones.
 T3DE0:
                        .DB $40, $40, $40, $40, $40, $40, $40, $34, $2C, $26, $20, $1C, $18, $14, $12, $0F
                        .DB $0D, $0B, $09, $08, $07, $06, $05, $04, $03, $02, $02, $02, $02, $02, $02, $02

@@ -1,7 +1,10 @@
 # Phoenix
 A Z80 assembly source code, derived from 'https://computerarcheology.com/Arcade/Phoenix/Code.html'.
 
-The main use of that source code is for testing purposes.
+The primary purpose of this source code is for testing and reverse engineering with MAME.
+
+The game's executable code and data are defined at their original offsets.
+The unused code and data are skipped and are not part of this project.
 
 Usage: uz80as.exe -x Phoenix.asm
 
