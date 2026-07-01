@@ -1,6 +1,8 @@
 # Phoenix
 A Z80 assembly source code, derived from 'https://computerarcheology.com/Arcade/Phoenix/Code.html'.
 
+This code refers to the "maincpu" section of the ROM region from the ROM set: Phoenix (Amstar, set 1).
+
 The primary purpose of this source code is for testing and reverse engineering with MAME.
 
 The game's executable code and data are defined at their original offsets.

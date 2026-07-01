@@ -35,7 +35,7 @@ M4359                  .EQU $4359       ;Staggered group countdown timer 1 for p
 M435A                  .EQU $435A       ;Staggered group countdown timer 2 for phased alien launches
 M435B                  .EQU $435B       ;Staggered group countdown timer 3 for phased alien launches
 
-; Flags and counter
+; Flags and counter:
 M435E                  .EQU $435E       ;Flag for: 'AliensLeft < 5' ($FF)
 M435F                  .EQU $435F       ;8 bit counter for alien movement
 PlayerMoved            .EQU $4360       ;Flag for: 'Player moved' ($FF)
@@ -52,14 +52,12 @@ M436A                  .EQU $436A       ;Flag for: 'Bonus live added' ($FF) and 
 M436B                  .EQU $436B       ;Flag for: 'Mother ship score display' ($FF) and counter
 
 ; Shape of the next bird attack:
-; `$436D` says where they enter,
-; `$436E` says how many birds,
-; `$436F` adds the random variation that keeps successive waves from being identical.
 ; All three are recomputed by `L3560` each time a new bird group is dispatched.
 M436D                  .EQU $436D       ;Horizontal start position of the bird group
 M436E                  .EQU $436E       ;Bird count / formation-size for the wave
-M436F                  .EQU $436F       ;Per-wave random variation seed
+M436F                  .EQU $436F       ;Per-wave random variation seed (keeps successive waves from being identical)
 
+;Explosion slots for animation:
 M4370                  .EQU $4370       ;Explosion slot0 animation index
 M4371                  .EQU $4371       ;Explosion slot0 BCD score value (last digit is ever 0)
 M4372                  .EQU $4372       ;Explosion slot0 MSB screen ram
@@ -76,6 +74,8 @@ M437C                  .EQU $437C       ;Bonus explosion slot1 animation index
 M437D                  .EQU $437D       ;Bonus explosion slot1 BCD score value (last digit is ever 0)
 M437E                  .EQU $437E       ;Bonus explosion slot1 MSB screen ram
 M437F                  .EQU $437F       ;Bonus explosion slot1 LSB screen ram
+
+;For the score:
 M4380                  .EQU $4380       ;Ever set to 0 (prevents overflow)
 Score1high             .EQU $4381       ;Player 1 score BCD (high)
 Score1mid              .EQU $4382       ;Player 1 score BCD (mid)
@@ -88,6 +88,8 @@ M4388                  .EQU $4388       ;Ever set to 0 (prevents overflow)
 HiScorehigh            .EQU $4389       ;Hi score BCD (high)
 HiScoremid             .EQU $438A       ;Hi score BCD (mid)
 HiScorelow             .EQU $438B       ;Hi score BCD (low)
+
+;For general purposes:
 SoundControlA          .EQU $438C       ;RAM copy of sound device control register A (0x6000)
 SoundControlB          .EQU $438D       ;RAM copy of sound device control register B (0x6800)
 M438E                  .EQU $438E       ;Bird-wave background-sound phase (advances the melody, low bit drives SoundControlB)
@@ -137,9 +139,9 @@ CounterB9              .EQU $43B9       ;8 bit backwards counter
 AliensLeft             .EQU $43BA       ;Number of aliens left in wave (16 at new)
 BirdsLeft              .EQU $43BB       ;Number of birds left in wave (8 at new)
 M43BC                  .EQU $43BC       ;Reserved/unused byte
-M43BD                  .EQU $43BD       ;
-BonusLivesAt           .EQU $43BE       ;Bonus lives (at 30K, 40K, 50K or 60K) from DIP switch settings
-M43BF                  .EQU $43BF       ;
+M43BD                  .EQU $43BD       ;Low byte of the bonus extra-life score threshold; rewritten (nibble-swapped `BonusLivesAt`) after a bonus is granted
+BonusLivesAt           .EQU $43BE       ;Middle byte of the threshold, set from DIP switches to `$30/$40/$50/$60` = 3000/4000/5000/6000 points
+M43BF                  .EQU $43BF       ;High byte of the bonus extra-life score threshold
 
 ; Player and player bullets, data structure (grid).
 PlayerState            .EQU $43C0       ;Player ship control state register
@@ -186,10 +188,10 @@ PlayerBulletMSB        .EQU $43E4       ;MSB screen ram: Player bullet
 PlayerBulletLSB        .EQU $43E5       ;LSB screen ram: Player bullet
 AbovePlayerBulletMSB   .EQU $43E6       ;MSB screen ram: One character above player bullet
 AbovePlayerBulletLSB   .EQU $43E7       ;LSB screen ram: One character above player bullet
-M43E8                  .EQU $43E8       ;?
-M43E9                  .EQU $43E9       ;?
-M43EA                  .EQU $43EA       ;
-M43EB                  .EQU $43EB       ;
+M43E8                  .EQU $43E8       ;MSB of its previous position (erase pointer, refreshed by `L0886`)
+M43E9                  .EQU $43E9       ;LSB of its previous position (erase pointer, refreshed by `L0886`)
+M43EA                  .EQU $43EA       ;MSB of its current position (draw + collision pointer, recomputed each frame by `L09A0` from `$43CA:$43CB`)
+M43EB                  .EQU $43EB       ;LSB of its current position (draw + collision pointer, recomputed each frame by `L09A0` from `$43CA:$43CB`)
 
 ; Alien and bird bullets, data structure (screen ram).
 OldAlienBullet0MSB     .EQU $43EC       ;Old MSB screen ram: Enemy bullet 0
