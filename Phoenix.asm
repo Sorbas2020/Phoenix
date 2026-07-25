@@ -1,17 +1,28 @@
-;********************************************************************
-;*                                                                  *
-;* PHOENIX                                                          *
-;*                                                                  *
-;* (c) Amstar Electronics Corp. 1980                                *
-;*                                                                  *
-;* 20250330                                                         *
-;* Skipped all unused code and data.                                *
-;* All code and data at original offsets.                           *
-;* Assebled with 'Micro Z80 assembler - uz80as' (v2.02).            *
-;* https://github.com/jorgicor/uz80as                               *
-;* Usage:                                                           *
-;* uz80as.exe -x Phoenix.asm                                        *
-;********************************************************************
+;*****************************************************************************
+;*                                                                           *
+;* PHOENIX (AMSTAR, SET 1).  Amstar Electronics Corp. 1980                   *
+;*                                                                           *
+;*****************************************************************************
+;* This code refers to the "maincpu" section of the ROM region from ROM set. *
+;*                                                                           *
+;* ROM region offsets:                                                       *
+;*  ic45        $0000-$07FF                                                  *
+;*  ic46        $0800-$0FFF                                                  *
+;*  ic47        $1000-$17FF                                                  *
+;*  ic48        $1800-$1FFF                                                  *
+;*  h5-ic49.5a  $2000-$27FF                                                  *
+;*  h6-ic50.6a  $2800-$2FFF                                                  *
+;*  h7-ic51.7a  $3000-$37FF                                                  *
+;*  h8-ic52.8a  $3800-$3FFF                                                  *
+;*****************************************************************************
+;* 20250330                                                                  *
+;* Skipped all unused code and data.                                         *
+;* All code and data at original offsets.                                    *
+;* Assebled with 'Micro Z80 assembler - uz80as' (v2.02).                     *
+;* https://github.com/jorgicor/uz80as                                        *
+;* Usage:                                                                    *
+;* uz80as.exe -x Phoenix.asm                                                 *
+;*****************************************************************************
 
 ; ForegroundScreen.
 ForegroundScreen       .EQU $4000       ;32*26 bytes for the foreground screen
@@ -328,67 +339,67 @@ M4BAF                  .EQU $4BAF       ;AlienF screen coordinate Y
 B4B70                  .EQU $4B70       ;Bird0 index character block shape
 B4B71                  .EQU $4B71       ;Bird0 MSB initial screen address  
 B4B72                  .EQU $4B72       ;Bird0 LSB initial screen address  
-B4B73                  .EQU $4B73       ;Bird0 ?                           
-B4B74                  .EQU $4B74       ;Bird0 ?                           
-B4B75                  .EQU $4B75       ;Bird0 grid coordinate X ?         
-B4B76                  .EQU $4B76       ;Bird0 ?                           
-B4B77                  .EQU $4B77       ;Bird0 grid coordinate Y ?         
+B4B73                  .EQU $4B73       ;Bird0 animation phase / current shape frame
+B4B74                  .EQU $4B74       ;Bird0 movement-step countdown timer
+B4B75                  .EQU $4B75       ;Bird0 grid coordinate X 
+B4B76                  .EQU $4B76       ;Bird0 horizontal movement step (velocity)
+B4B77                  .EQU $4B77       ;Bird0 grid coordinate Y 
 B4B78                  .EQU $4B78       ;Bird1 index character block shape 
 B4B79                  .EQU $4B79       ;Bird1 MSB initial screen address  
 B4B7A                  .EQU $4B7A       ;Bird1 LSB initial screen address  
-B4B7B                  .EQU $4B7B       ;Bird1 ?                           
-B4B7C                  .EQU $4B7C       ;Bird1 ?                           
-B4B7D                  .EQU $4B7D       ;Bird1 grid coordinate X ?         
-B4B7E                  .EQU $4B7E       ;Bird1 ?                           
-B4B7F                  .EQU $4B7F       ;Bird1 grid coordinate Y ?         
+B4B7B                  .EQU $4B7B       ;Bird1 animation phase / current shape frame
+B4B7C                  .EQU $4B7C       ;Bird1 movement-step countdown timer
+B4B7D                  .EQU $4B7D       ;Bird1 grid coordinate X 
+B4B7E                  .EQU $4B7E       ;Bird1 horizontal movement step (velocity)
+B4B7F                  .EQU $4B7F       ;Bird1 grid coordinate Y 
 B4B80                  .EQU $4B80       ;Bird2 index character block shape 
 B4B81                  .EQU $4B81       ;Bird2 MSB initial screen address  
 B4B82                  .EQU $4B82       ;Bird2 LSB initial screen address  
-B4B83                  .EQU $4B83       ;Bird2 ?                           
-B4B84                  .EQU $4B84       ;Bird2 ?                           
-B4B85                  .EQU $4B85       ;Bird2 grid coordinate X ?         
-B4B86                  .EQU $4B86       ;Bird2 ?                           
-B4B87                  .EQU $4B87       ;Bird2 grid coordinate Y ?         
+B4B83                  .EQU $4B83       ;Bird2 animation phase / current shape frame
+B4B84                  .EQU $4B84       ;Bird2 movement-step countdown timer
+B4B85                  .EQU $4B85       ;Bird2 grid coordinate X 
+B4B86                  .EQU $4B86       ;Bird2 horizontal movement step (velocity)
+B4B87                  .EQU $4B87       ;Bird2 grid coordinate Y 
 B4B88                  .EQU $4B88       ;Bird3 index character block shape 
 B4B89                  .EQU $4B89       ;Bird3 MSB initial screen address  
 B4B8A                  .EQU $4B8A       ;Bird3 LSB initial screen address  
-B4B8B                  .EQU $4B8B       ;Bird3 ?                           
-B4B8C                  .EQU $4B8C       ;Bird3 ?                           
-B4B8D                  .EQU $4B8D       ;Bird3 grid coordinate X ?         
-B4B8E                  .EQU $4B8E       ;Bird3 ?                           
-B4B8F                  .EQU $4B8F       ;Bird3 grid coordinate Y ?         
+B4B8B                  .EQU $4B8B       ;Bird3 animation phase / current shape frame
+B4B8C                  .EQU $4B8C       ;Bird3 movement-step countdown timer
+B4B8D                  .EQU $4B8D       ;Bird3 grid coordinate X 
+B4B8E                  .EQU $4B8E       ;Bird3 horizontal movement step (velocity)
+B4B8F                  .EQU $4B8F       ;Bird3 grid coordinate Y 
 B4B90                  .EQU $4B90       ;Bird4 index character block shape 
 B4B91                  .EQU $4B91       ;Bird4 MSB initial screen address  
 B4B92                  .EQU $4B92       ;Bird4 LSB initial screen address  
-B4B93                  .EQU $4B93       ;Bird4 ?                           
-B4B94                  .EQU $4B94       ;Bird4 ?                           
-B4B95                  .EQU $4B95       ;Bird4 grid coordinate X ?         
-B4B96                  .EQU $4B96       ;Bird4 ?                           
-B4B97                  .EQU $4B97       ;Bird4 grid coordinate Y ?         
+B4B93                  .EQU $4B93       ;Bird4 animation phase / current shape frame
+B4B94                  .EQU $4B94       ;Bird4 movement-step countdown timer
+B4B95                  .EQU $4B95       ;Bird4 grid coordinate X 
+B4B96                  .EQU $4B96       ;Bird4 horizontal movement step (velocity)
+B4B97                  .EQU $4B97       ;Bird4 grid coordinate Y 
 B4B98                  .EQU $4B98       ;Bird5 index character block shape 
 B4B99                  .EQU $4B99       ;Bird5 MSB initial screen address  
 B4B9A                  .EQU $4B9A       ;Bird5 LSB initial screen address  
-B4B9B                  .EQU $4B9B       ;Bird5 ?                           
-B4B9C                  .EQU $4B9C       ;Bird5 ?                           
-B4B9D                  .EQU $4B9D       ;Bird5 grid coordinate X ?         
-B4B9E                  .EQU $4B9E       ;Bird5 ?                           
-B4B9F                  .EQU $4B9F       ;Bird5 grid coordinate Y ?         
+B4B9B                  .EQU $4B9B       ;Bird5 animation phase / current shape frame
+B4B9C                  .EQU $4B9C       ;Bird5 movement-step countdown timer
+B4B9D                  .EQU $4B9D       ;Bird5 grid coordinate X 
+B4B9E                  .EQU $4B9E       ;Bird5 horizontal movement step (velocity)
+B4B9F                  .EQU $4B9F       ;Bird5 grid coordinate Y 
 B4BA0                  .EQU $4BA0       ;Bird6 index character block shape 
 B4BA1                  .EQU $4BA1       ;Bird6 MSB initial screen address  
 B4BA2                  .EQU $4BA2       ;Bird6 LSB initial screen address  
-B4BA3                  .EQU $4BA3       ;Bird6 ?                           
-B4BA4                  .EQU $4BA4       ;Bird6 ?                           
-B4BA5                  .EQU $4BA5       ;Bird6 grid coordinate X ?         
-B4BA6                  .EQU $4BA6       ;Bird6 ?                           
-B4BA7                  .EQU $4BA7       ;Bird6 grid coordinate Y ?         
+B4BA3                  .EQU $4BA3       ;Bird6 animation phase / current shape frame
+B4BA4                  .EQU $4BA4       ;Bird6 movement-step countdown timer
+B4BA5                  .EQU $4BA5       ;Bird6 grid coordinate X 
+B4BA6                  .EQU $4BA6       ;Bird6 horizontal movement step (velocity)
+B4BA7                  .EQU $4BA7       ;Bird6 grid coordinate Y 
 B4BA8                  .EQU $4BA8       ;Bird7 index character block shape 
 B4BA9                  .EQU $4BA9       ;Bird7 MSB initial screen address  
 B4BAA                  .EQU $4BAA       ;Bird7 LSB initial screen address  
-B4BAB                  .EQU $4BAB       ;Bird7 ?                           
-B4BAC                  .EQU $4BAC       ;Bird7 ?                           
-B4BAD                  .EQU $4BAD       ;Bird7 grid coordinate X ?         
-B4BAE                  .EQU $4BAE       ;Bird7 ?                           
-B4BAF                  .EQU $4BAF       ;Bird7 grid coordinate Y ?         
+B4BAB                  .EQU $4BAB       ;Bird7 animation phase / current shape frame
+B4BAC                  .EQU $4BAC       ;Bird7 movement-step countdown timer
+B4BAD                  .EQU $4BAD       ;Bird7 grid coordinate X 
+B4BAE                  .EQU $4BAE       ;Bird7 horizontal movement step (velocity)
+B4BAF                  .EQU $4BAF       ;Bird7 grid coordinate Y 
 
 ; Alien data structure (screen ram)
 M4BB0                  .EQU $4BB0       ;Old MSB screen ram adress alien0
@@ -458,24 +469,24 @@ M4BEF                  .EQU $4BEF       ;LSB screen ram adress alienF
 
 ; Bird extended storage
 ; Used for all levels with the 8 birds.
-B4BC0                  .EQU $4BC0       ;
-B4BC1                  .EQU $4BC1       ;
-B4BC2                  .EQU $4BC2       ;
-B4BC3                  .EQU $4BC3       ;
-B4BC4                  .EQU $4BC4       ;
-B4BC5                  .EQU $4BC5       ;
+B4BC0                  .EQU $4BC0       ;saved PlayerBulletState
+B4BC1                  .EQU $4BC1       ;saved PlayerBulletShape
+B4BC2                  .EQU $4BC2       ;saved PlayerBulletX
+B4BC3                  .EQU $4BC3       ;saved PlayerBulletY
+B4BC4                  .EQU $4BC4       ;saved AbovePlayerBulletMSB
+B4BC5                  .EQU $4BC5       ;saved AbovePlayerBulletLSB
 
-B4BD1                  .EQU $4BD1       ;
-B4BD2                  .EQU $4BD2       ;
-B4BD3                  .EQU $4BD3       ;
-B4BD4                  .EQU $4BD4       ;
-B4BD5                  .EQU $4BD5       ;
-B4BD6                  .EQU $4BD6       ;
-B4BD7                  .EQU $4BD7       ;
+B4BD1                  .EQU $4BD1       ;Descent turnaround depth threshold (formation reverses when `$4BD2` passes it)
+B4BD2                  .EQU $4BD2       ;Vertical scroll phase 0–31 of the bird formation (derived from `CounterB9`; master index) (0..31)
+B4BD3                  .EQU $4BD3       ;Countdown timer between bird attack launches
+B4BD4                  .EQU $4BD4       ;Attack sub-pattern selector (0–3, from random `$436F`) for one of four attack variants
+B4BD5                  .EQU $4BD5       ;Descent step/speed value (feeds the `$3ED0` dither scroll rate)
+B4BD6                  .EQU $4BD6       ;Combined scroll-phase + active-bird center index (indexes `$3EE0` curve & `T3DE0` sound)
+B4BD7                  .EQU $4BD7       ;Active-bird vertical spread — computed but not consumed (vestigial)
 
-B4BED                  .EQU $4BED       ;
-B4BEE                  .EQU $4BEE       ;
-B4BEF                  .EQU $4BEF       ;
+B4BED                  .EQU $4BED       ;Unused RAM (cleared at level init, never referenced)
+B4BEE                  .EQU $4BEE       ;Unused RAM (cleared at level init, never referenced)
+B4BEF                  .EQU $4BEF       ;Unused RAM (cleared at level init, never referenced)
 
 ; Stack
 Stack                  .EQU $4BF0       ;Stack space 4BF0:4BFF
@@ -488,6 +499,9 @@ SOUNDCTLB              .EQU $6800       ;Sound control B
 IN0                    .EQU $7000       ;Player inputs
 DSW0                   .EQU $7800       ;DIP switch settings
 
+;*****************************************************************************
+; ic45
+;*****************************************************************************
                        .ORG $0000
 L0000:
                        NOP                         ; Start/restart and interrupts end up at 0008
@@ -533,11 +547,13 @@ L002D:
                        JP      Z,L0046             ; No credits ... continue splash
                        CALL    PromptForStartGame  ;
                        JP      MainLoop            ; Back to top of main loop
-; 
+; Continue splash 
 L0046:
                        CALL    SplashAndDemo       ;
                        JP      MainLoop            ; Back to top of main loop
-; Main loop end.
+;*****************************************************************************
+;* Main loop end
+;*****************************************************************************
 
                        .ORG $0050
 ;*****************************************************************************
@@ -677,32 +693,32 @@ SplashAndDemo:
                        CALL    AddOneToMem         ; increases it by one
                        LD      BC,$0001            ;
                        CALL    CompareBCtoMem      ;
-                       JP      Z,PrintCopyright    ; do if $4398:$4399 is >= 00 01
+                       JP      Z,PrintCopyright    ; do if Counter98 is >= 00 01
                        LD      BC,$0002            ;
                        LD      DE,$011F            ; used as delay counter
                        CALL    SubtractIfEnough    ;
-                       JP      NC,SlowPrintScoreAverageTable
+                       JP      NC,SlowPrintScoreAverageTable    ; do if Counter98 is >= 00 02
                        LD      BC,$0120            ; for a longer break
                        CALL    CompareBCtoMem      ;
-                       JP      Z,DrawScoreAverageTableTiles
+                       JP      Z,DrawScoreAverageTableTiles     ; do if Counter98 is >= 01 20
                        LD      C,$B0               ; for a short break
                        CALL    CompareBCtoMem      ;
-                       JP      Z,PrintCopyright    ; do if $4398:$4399 is >= 01 B0
+                       JP      Z,PrintCopyright    ; do if Counter98 is >= 01 B0
                        LD      C,$B8               ;
                        CALL    CompareBCtoMem      ;
-                       JP      Z,InitGlobalLevelData
+                       JP      Z,InitGlobalLevelData            ; do if Counter98 is >= 01 B8
                        LD      C,$C0               ; for a short break
                        LD      DE,$02DF            ;
                        CALL    SubtractIfEnough    ;
-                       JP      NC,SlowPrintScrollRegisterUpdate
+                       JP      NC,SlowPrintScrollRegisterUpdate ; do if Counter98 is >= 01 C0
                        LD      BC,$0300            ;
                        LD      DE,$03AF            ;
                        CALL    SubtractIfEnough    ;
-                       JP      NC,DrawIntroBirdAnimationFrame
+                       JP      NC,DrawIntroBirdAnimationFrame   ; do if Counter98 is >= 03 00
                        LD      BC,$03E6            ;
                        LD      DE,$FFFF            ;
                        CALL    SubtractIfEnough    ;
-                       JP      NC,GameDemo         ; do if $4398:$4399 is >= 03 E6
+                       JP      NC,GameDemo         ; do if Counter98 is >= 03 E6
                        RET                         ;
 
                        .ORG $0140
@@ -730,8 +746,8 @@ ClearForeAndBackground:
                        AND     $0C                 ; mask out 0000_1100 the Bonus lives
                        RLCA                        ; rotate left ..
                        RLCA                        ; .. to 0011_0000
-                       ADD     $30                 ; $30, $40, $50, or $60
-                       LD      (HL),A              ; save to BonusLivesAt
+                       ADD     $30                 ; -> $30,$40,$50,$60
+                       LD      (HL),A              ; save to BonusLivesAt = 3000/4000/5000/6000 pts (BCD)
                        LD      H,scrollRegister >> 8
                        LD      (HL),$00            ; init screen scrolling
                        CALL    WaitVBlankCoin      ;
@@ -773,8 +789,10 @@ GetPlayerInputsForDemo:
 
                        .ORG $0196
 ;*****************************************************************************
-;* Slow printing the static texts for the score average table 
-;* and the big letters of phoenix title.
+;* Slow printing the static texts for the score average table
+;* and the big letters of the Phoenix title. Prints ONE character per call,
+;* driven by Counter98 ($4398:$4399). Attract-mode only.
+;* In: HL = $4399 (Counter98 LSB).
 ;*****************************************************************************
 SlowPrintScoreAverageTable:
                        LD      A,(HL)              ; get actual index for slow print ($4399)
@@ -1074,6 +1092,9 @@ UpdateHiScore:
                        RET                         ; Done
 
                        .ORG $0314
+;*****************************************************************************
+;* Generic 3 byte BCD comparator
+;*****************************************************************************
 L0314:
                        LD      A,(DE)              ;
                        SUB     (HL)                ;
@@ -1342,13 +1363,33 @@ L0430:
 
                        .ORG $0460
 ;*****************************************************************************
-;* Copy memory bank to bank
-;* B=from bank number, C=to bank number
-;* Starts at 4320
+;* Copy memory bank to bank.
+;* B = from-bank number, C = to-bank number.  Copies three regions:
+;*   1) the foreground playfield (from $4320)
+;*      This loop walks the screen in the display's native (rotated) order:
+;*      It copies a 4 byte group (`E & 3` inner loop), then snaps `E` to
+;*      its `$x0` boundary and subtracts `$20` to jump to the group one screen line earlier,
+;*      when that underflows it decrements the page (`DEC D`).
+;*      It marches through pages `$43 -> $42 -> $41 -> $40` and stops when `D` reaches `$3F`
+;*      (i.e. below `$4000`). Net effect: the visible playfield is transferred between banks.
+;*   2) the game-state/score block  $4380-$43B7
+;*      A straight linear copy (`INC E` until `$B8`). This carries the two players' scores
+;*      (`$4380`–`$4387`) plus the level/round and assorted counters in that block.
+;*   3) the object buffer          $4BC0-$4BFF
+;*      Another linear copy that runs until `E` wraps from `$FF` to `$00`.
+;*      This preserves the in progress object/bird buffer.
+;* Role in the game:
+;* `CopyMemoryBank` is what makes alternating two player play possible:
+;* at each turn boundary the game flips the "current player" flag and calls this routine
+;* to move the departing player's screen and state into their bank while bringing
+;* the incoming player's bank live (the register ends on `C`). The three regions cover
+;* exactly what must persist across turns — the visible screen, the score/level/counter block,
+;* and the object buffer — so each player resumes precisely where they left off.
 ;*****************************************************************************
 CopyMemoryBank:
                        LD      HL,videoRegister    ; 50xx video register
                        LD      DE,ForegroundScreen+$320; 1st row 1st line
+;----- Region 1: the visible foreground screen --------------------------------
 L0466:
                        LD      (HL),B              ;
                        LD      A,(DE)              ;
@@ -1368,6 +1409,7 @@ L0466:
                        CP      $3F                 ;
                        JP      NZ,L0466            ;
                        LD      DE,M4380            ;
+;----- Region 2: game-state + score block $4380-$43B7 -------------------------
 L0484:
                        LD      (HL),B              ;
                        LD      A,(DE)              ;
@@ -1378,6 +1420,7 @@ L0484:
                        CP      $B8                 ;
                        JP      NZ,L0484            ;
                        LD      DE,M4BC0            ;
+;----- Region 3: object buffer $4BC0-$4BFF ------------------------------------
 L0492:
                        LD      (HL),B              ;
                        LD      A,(DE)              ;
@@ -1745,6 +1788,14 @@ L0699:
                        .ORG $06B0
 ;*****************************************************************************
 ;* Fill the background with (2x2) planets.
+;* Reads the MSB from `T1E20`, then reaches `T1E40` simply by adding `$20`
+;* to the same pointer (`$1E20 + $20 = $1E40`) — which is the clearest proof that `T1E40` is the LSB companion of `T1E20`.
+;* So `DE = (T1E20[i] << 8) | T1E40[i]`, then the LSB gets a scroll dependent offset added (derived from `CounterB9 >> 3`)
+;* so the planet drifts down as the star background scrolls. `DE` ends up somewhere in `$4800`–`$4BFF` (the background screen).
+;* The graphic itself is then chosen via `T1E60 -> T1E00` and drawn by `L07DC`.
+;* The routine only fires when `CounterB9` matches the planet counter (`$43AB`),
+;* so as the background scrolls a new planet is dropped in at successive slots,
+;* the slot index (masked to `$1F`) cycles through all 32 `T1E20`/`T1E40` positions.
 ;*****************************************************************************
 AddPlanetsToBackground:
                        LD      HL,M43AB            ; counter value for (2x2) planets
@@ -2100,6 +2151,9 @@ L07F0:
                        CALL    ClearForeground     ;
                        JP      SetBitsVideoRegister
 
+;*****************************************************************************
+; ic46
+;*****************************************************************************
                        .ORG $0800
 ;*****************************************************************************
 ;* Game state 3.
@@ -2186,7 +2240,7 @@ GetAnimationChrs:
 ; Updates the player ship, player bullet and the shield.
 ;*****************************************************************************
 PlayerUpdate:
-                       CALL    PlayerDataController
+                       CALL    PlayerDataController     ; draw new / delete old objects
                        CALL    L0886               ; copy current player data to old player data ?
                        CALL    L08A0               ; update player position, bullet and shield
                        CALL    L09A0               ; get screen ram adress for player ship position
@@ -2436,6 +2490,14 @@ GetScreenRamAddress:
                        .ORG $0A00
 ; Screen ram addresses for the top row (left to right)
 ; Notice these addresses are MSB:LSB (backwards from the processors endianness)
+; The offset is `(X & $F8) >> 2`, which ranges `$00`…`$3E`.
+; The 26 valid columns use offsets `$00`–`$32` (`$0A00`–`$0A33`).
+; Any X coordinate large enough to produce offset `$34`–`$3E` lands in your range and reads `$0000`.
+; Because the entry is `$0000` for both MSB and the row base LSB,
+; the computed destination collapses to address `$0000` (plus a tiny Y offset),
+; i.e. low ROM, where writes are simply ignored.
+; The result is that an object pushed past the right edge is "drawn" to a harmless null address
+; instead of corrupting screen RAM or wrapping onto a visible tile.
 T0A00:
                        .MSFIRST
                        .DW ForegroundScreen+$320  ; Upper left corner of rotated screen
@@ -2465,7 +2527,9 @@ T0A00:
                        .DW ForegroundScreen+$20
                        .DW ForegroundScreen       ; Upper right corner of rotated screen
 
-; Mapping the 'out of screen' objects
+; Mapping the 'out of screen' objects,
+; that catch coordinates mapping beyond the 26 columns, returning a null (`$0000`) address
+; so off screen objects are written to a safe, ignored location rather than drawn as garbage.
                        .DB $00, $00
                        .DB $00, $00
                        .DB $00, $00
@@ -2621,26 +2685,30 @@ L0AEA:
                        JP      L0BBA               ;
 
                        .ORG $0B15
+;*****************************************************************************
+;* The explosion is over — it reloads `CounterA5=5`, decrements that player's life count,
+;* refreshes the lives display, and sets `GameState = 0` (new turn / next player start).
+;*****************************************************************************
 L0B15:
                        DEC     L                   ;
-                       LD      (HL),$05            
-                       DEC     L                   
-                       LD      A,(HL)              
-                       ADD     $90                 
-                       LD      L,A                 
-                       LD      A,(HL)              
+                       LD      (HL),$05            ;
+                       DEC     L                   ;
+                       LD      A,(HL)              ;
+                       ADD     $90                 ; -> Player1Lives / Player2Lives slot                 
+                       LD      L,A                 ;
+                       LD      A,(HL)              ;
                        AND     A                   ; updates the zero flag
-                       RET     Z                   
-                       DEC     (HL)                
-                       PUSH    HL                  
+                       RET     Z                   ;
+                       DEC     (HL)                ; lose a life
+                       PUSH    HL                  ;
                        CALL    UpdateLivesScreen   ;
-                       POP     HL                  
-                       LD      A,(HL)              
+                       POP     HL                  ;
+                       LD      A,(HL)              ;
                        AND     A                   ; updates the zero flag
-                       RET     Z                   
-                       LD      L,$A4               
-                       LD      (HL),$00            
-                       RET                         
+                       RET     Z                   ;
+                       LD      L,$A4               ; GameState
+                       LD      (HL),$00            ; set to: 'new game start'
+                       RET                         ;
 
                        .ORG $0B38
 ; Player ship X position mapping table
@@ -2716,7 +2784,9 @@ L0B95:
                        JP      L1DF0               ;
 
                        .ORG $0BA0
-;
+;*****************************************************************************
+;* Late cleanup: clear background, reset scroll on non‑mothership levels.
+;*****************************************************************************
 L0BA0:
                        LD      HL,LevelAndRound    ;
                        LD      A,(HL)              ;
@@ -2732,7 +2802,19 @@ L0BA0:
                        JP      ClearBackground     ;
 
                        .ORG $0BBA
-;
+;*****************************************************************************
+;* Player-ship explosion:
+;* Per-frame visual dispatcher.
+;* Entered from L0AEA (game state 4) with A = CounterA5 (explosion phase),
+;* when CounterA5 >= $20. Selects one task per frame from the low 2 bits,
+;* so the three effects are interleaved as the counter runs down:
+;*   CounterA5 & 1 == 0   -> L0FC0  killed-alien animation upkeep
+;*   CounterA5 & 3 == 01  -> L20E8  draw a 4x4 ship-fragment sprite
+;*   CounterA5 & 3 == 11  -> L2070  render the particle field (T2800/T2900)
+;* So across consecutive frames the three low bit patterns rotate through the three tasks,
+;* letting the game advance the debris field, the fragment sprites,
+;* and any in progress killed alien effects without doing all of them in a single frame.
+;*****************************************************************************
 L0BBA:
                        LD      B,A                 ;
                        RRCA                        ;
@@ -2765,28 +2847,42 @@ DrawScoreAverageTableTiles:
                        RET                         ;
 
                        .ORG $0C00
+;*****************************************************************************
+;* Score/bonus selector for a shot flying alien:
+;* A flying alien was hit. Choose its explosion / score from its current
+;* movement-pattern phase.
+;* Entry: HL -> struck alien's screen-X field ($4B72 + 4*index).
+;* Per-alien movement-pattern pointers live at $4B50 (2 bytes: MSB,LSB each).
+;* Pattern value 7 or 8 (attack/dive apex) -> 200-pt bonus + bonus explosion;
+;* any other value -> normal kill.  All paths finish in L0EA4.
+;* This routine is the mechanic that rewards shooting an alien at the peak of its swoop/dive,
+;* only when the enemy's movement pattern is in phase 7–8 do you get the 200 point bonus
+;* and the special bonus explosion, hitting it at any other point in its flight
+;* gives the ordinary kill value.
+;*****************************************************************************
 L0C00:
-                       PUSH    HL                  
-                       LD      A,L                 
-                       SUB     $72                 
-                       RRCA                        
-                       ADD     $50                 
-                       LD      L,A                 
-                       LD      A,(HL)              
-                       INC     L                   
-                       LD      L,(HL)              
-                       LD      H,A                 
-                       LD      DE,$0C04            
-                       LD      A,(HL)              
-                       POP     HL                  
-                       CP      $07                 
-                       JP      C,L0EA4             ;
-                       CP      $09                 
-                       JP      NC,L0EA4            ;
-                       LD      DE,$1020            ; set E reg. for bonus explosion score 200
+                       PUSH    HL                  ; save the alien entry pointer
+                       LD      A,L                 ; L = $72,$76,$7A,... (screen-X field of this alien)
+                       SUB     $72                 ; -> 0,4,8,... = 4 * alien index
+                       RRCA                        ; /2 -> 0,2,4,... = 2 * alien index
+                       ADD     $50                 ; -> $50 + 2*index
+                       LD      L,A                 ; HL = $4B50 + 2*index (this alien's pattern pointer)
+                       LD      A,(HL)              ; get MSB pointer of alien movement pattern
+                       INC     L                   ; 
+                       LD      L,(HL)              ; get LSB pointer of alien movement pattern
+                       LD      H,A                 ; HL = alien's current position in its pattern list
+                       LD      DE,$0C04            ; default: D=$0C anim index, E=$04 normal-kill score
+                       LD      A,(HL)              ; get movement pattern value (current phase)
+                       POP     HL                  ; restore the alien entry pointer
+                       CP      $07                 ; 
+                       JP      C,L0EA4             ; phase < $07: normal kill
+                       CP      $09                 ; 
+                       JP      NC,L0EA4            ; phase >= $09: normal kill
+; Else phase is $07 or $08 -> BONUS
+                       LD      DE,$1020            ; D=$10 anim index, E=$20 bonus explosion score 200
                        LD      A,$FF               ; set bonus explosion flag
-                       LD      (M4369),A           ;
-                       JP      L0EA4               ;
+                       LD      (M4369),A           ; $4369 = 'bonus explosion'
+                       JP      L0EA4               ; kill with the bonus values
 
                        .ORG $0C40
 ;*****************************************************************************
@@ -2794,12 +2890,12 @@ L0C00:
 ;*****************************************************************************
 L0C40:
                        LD      HL,AlienBullet4LSB  ; 
-                       LD      B,$05               
-                       CALL    L088B               ; 
-                       CALL    L0C56               ; 
-                       CALL    L0C6B               ; 
-                       CALL    L0CD8               ; 
-                       RET                         
+                       LD      B,$05               ; 5 bullet slots
+                       CALL    L088B               ; Copy current enemy bullet data to old enemy bullet data
+                       CALL    L0C56               ; Enemy bullets movement and animation
+                       CALL    L0C6B               ; Get the screen ram address for all enemy bullets
+                       CALL    L0CD8               ; Draw or delete the screen objects
+                       RET                         ; 
 
                        .ORG $0C56
 ;*****************************************************************************
@@ -2809,15 +2905,15 @@ L0C40:
 L0C56:
                        LD      HL,AlienBullet0State; 
 L0C59:
-                       PUSH    HL                  
-                       CALL    L0C84               ; 
-                       POP     HL                  
-                       LD      A,L                 
-                       ADD     $04                 
-                       LD      L,A                 
-                       CP      $E0                 
-                       JP      NZ,L0C59            ; 
-                       RET                         
+                       PUSH    HL                  ; 
+                       CALL    L0C84               ; movement and animation of enemy bullet
+                       POP     HL                  ; 
+                       LD      A,L                 ; 
+                       ADD     $04                 ; 
+                       LD      L,A                 ; 
+                       CP      $E0                 ; 
+                       JP      NZ,L0C59            ; loop for 5 enemy bullet slots
+                       RET                         ; 
 
                        .ORG $0C6B
 ;*****************************************************************************
@@ -2881,14 +2977,14 @@ L0C84:
                        .ORG $0CB4
 ;
 L0CB4:
-                       CP      $DC                 
-                       RET     C                   
+                       CP      $DC                 ; lower part of screen
+                       RET     C                   ; if not reached
                        CP      $E9                 
                        RET     NC                  
-                       LD      A,(M439F)           ; 
+                       LD      A,(M439F)           ; Mapped player ship position, right part: ($17 to $C8)
                        CP      (HL)                
                        RET     C                   
-                       LD      A,(M439E)           ; 
+                       LD      A,(M439E)           ; Mapped player ship position, left part: ($09 to $C0)
                        CP      (HL)                
                        RET     NC                  
 
@@ -2924,11 +3020,13 @@ L0CDE:
                        LD      E,A                 
                        LD      D,B                 
                        AND     A                   ; updates the zero flag
-                       JP      NZ,L0CDE            ; 
+                       JP      NZ,L0CDE            ; loop for all bullet slots
                        RET                         
 
                        .ORG $0CF4
-; Alien collision on left or right side of player ship.
+;*****************************************************************************
+;* Alien collision on left or right side of player ship.
+;*****************************************************************************
 L0CF4:
                        POP     DE                  
                        POP     BC                  
@@ -3124,7 +3222,7 @@ L0DF0:
                        .ORG $0E10
 ;
 L0E10:
-                       LD      A,(BC)              ; ?
+                       LD      A,(BC)              ; get player bullet state
                        AND     $08                 ; mask out 0000_1000
                        RET     Z                   ; if bit3 not set
                        LD      D,(HL)              ; get MSB screen ram adress
@@ -3154,7 +3252,12 @@ L0E10:
                        RET     C                   ;
                        JP      L0E70               ; 
 
-;
+;*****************************************************************************
+;* Player bullet vs FLYING alien (out of formation) collision.
+;* Entry (from L0E10): BC -> player-bullet structure (state at +0),
+;*                     bullet X at +2, bullet Y at +3.
+;* Builds the bullet's target box, then scans all 16 alien slots ($4B70).
+;*****************************************************************************
 L0E39:
                        INC     BC                  
                        INC     BC                  
@@ -3165,6 +3268,9 @@ L0E39:
                        AND     $F8                 
                        LD      E,A                 
                        LD      HL,M4B70            ; 
+;*****************************************************************************
+;* Scan every alien slot; test the active ones for a hit.
+;*****************************************************************************
 L0E45:
                        LD      A,(HL)              
                        INC     HL                  
@@ -3179,7 +3285,15 @@ L0E45:
                        RET                         
 
                        .ORG $0E58
-;
+;*****************************************************************************
+;* Bounding-box test for one flying alien.
+;* HL -> alien screen X (+2); D = bullet X, E = bullet Y (masked).
+;* Box: alienX <= bulletX <= alienX+8  and  alienY-8 < bulletY <= alienY+4.
+;* If the bullet falls inside that box, it's a hit and control jumps to `L0C00`
+;* (with `HL` still pointing at the alien's `+2` field),
+;* which reads the alien's movement pattern phase to choose the score/bonus
+;* and then routes to `L0EA4` to blow it up.
+;*****************************************************************************
 L0E58:
                        LD      A,D                 
                        CP      (HL)                
@@ -3243,7 +3357,13 @@ L0E90:
                        RET     NZ                  
                        LD      DE,$0C02            ; E reg. set to: 'bonus explosion score 020'.
                        NOP                         
-;
+;*****************************************************************************
+;* Kill with the bonus values.
+;* `L0EA4` is the common "enemy destroyed" routine:
+;* It clears the bullet's and alien's active bits, finds a free bonus explosion animation slot (`$4378`/`$4370`),
+;* and uses `D` as the animation index and `E` as the score value.
+;* (Compare the sibling entry `L0EA0: LD DE,$0C02` used for in formation kills — same mechanism, different score/anim.)
+;*****************************************************************************
 L0EA4:
                        DEC     HL                  
                        DEC     HL                  
@@ -3303,6 +3423,27 @@ L0ED5:
 ;*****************************************************************************
 ;* 'Alien with player' collision check.
 ;* MAME cheat code "Invisibility for aliens": Set $0F00 to $C9 (RET)
+;* Uses a 2x2 box normally; a 4x4 box when the shield/explosion state is high.
+;* This is the counterpart to the bullet vs alien check:
+;* It asks "has a diving alien run into the player's ship?".
+;* - Box size depends on the shield (`ShieldCount`, `$43A6`).
+;*   If it's below `$C0`, `L0F00` uses a 2×2 collision box around the ship.
+;*   If it's `$C0` or higher (shield up / ship showing explosion tiles),
+;*   it branches to `L0F74`, which uses a larger 4×4 box and a wider vertical band.
+;* - `L0F56` is the fast screen test.
+;*   Given the ship's screen address and a `cols × rows` size,
+;*   It reads each character cell the ship occupies.
+;*   If any cell holds an alien glyph (`$60`–`$BF`) it immediately jumps to `L0CF4`
+;*   to handle the player being hit.
+;*   If it walks the whole box with no alien, it returns with `Z` set ("no collision").
+;* - `L0F38` / `L0FA6` identify and kill the offending alien.
+;*   After a collision is detected, the caller derives the ship's horizontal bounds (`B`,`C`)
+;*   and scans all 16 alien slots at `$4B70`. For each active alien
+;*   it checks that the alien's Y is in the player's bottom band
+;*   (small box `($D2,$E7)`, big box `($CA,$EF)`) and its X overlaps the ship (`B ≤ X < C`).
+;*   On a match it loads the animation/score values into `DE` (`$0D04` small, `$0D02` big),
+;*   rewinds `HL` to the alien's control byte, and jumps to `L0EAD`
+;*   (the shared "enemy destroyed" tail, same one used by the bullet kill path) to blow the alien up.
 ;*****************************************************************************
 L0F00:
                        LD      HL,ShieldCount      ; 
@@ -3339,7 +3480,10 @@ L0F23:
                        RET                         
 
                        .ORG $0F38
-;
+;*****************************************************************************
+;* Find the specific colliding alien (small box). HL -> alien screen X (+2).
+;* B/C = ship X bounds. Alien Y must be in the bottom band ($D2,$E7).
+;*****************************************************************************
 L0F38:
                        INC     L                   
                        LD      A,(HL)              
@@ -3360,8 +3504,10 @@ L0F38:
                        JP      L0EAD               ; 
 
                        .ORG $0F56
-; 'alien with player' collision check.
-; All parts of the player ship object are checked for a collision with aliens.
+;*****************************************************************************
+;* 'Alien with player' collision check.
+;* All parts of the player ship object are checked for a collision with aliens.
+;*****************************************************************************
 L0F56:
                        PUSH    BC                  ;
                        PUSH    DE                  ;
@@ -3383,7 +3529,9 @@ L0F63:
                        RET                         ;
 
                        .ORG $0F74
-;
+;*****************************************************************************
+;* Big-box variant: used when ShieldCount >= $C0 (4x4 box, wider Y band).
+;*****************************************************************************
 L0F74:
                        LD      L,$E2               
                        LD      D,(HL)              
@@ -3416,7 +3564,9 @@ L0F92:
                        RET                         
 
                        .ORG $0FA6
-;
+;*****************************************************************************
+;* Find the specific colliding alien (big box). Y band ($CA,$EF).
+;*****************************************************************************
 L0FA6:
                        INC     L                   
                        LD      A,(HL)              
@@ -3437,18 +3587,28 @@ L0FA6:
 
                        .ORG $0FC0
 ;*****************************************************************************
-;* Handle animations for killed aliens
+;* Handle animations for killed aliens.
+;* Services 4 explosion slots (4-byte records at $4370/$4374/$4378/$437C):
+;*   +0 = animation counter (0 = slot free)
+;*   +1 = unused
+;*   +2 = screen-RAM MSB
+;*   +3 = screen-RAM LSB
+;* Slots 0/1 are ordinary alien explosions (L0FD8); slots 2/3 use L3758
+;* (the bonus-explosion animator).
 ;*****************************************************************************
 L0FC0:
-                       LD      HL,M4370            ; 
-                       CALL    L0FD8               ; 
-                       LD      HL,M4374            ; 
-                       CALL    L0FD8               ; 
-                       LD      HL,M4378            ; 
-                       CALL    L3758               ; 
-                       LD      HL,M437C            ; 
-                       JP      L3758               ; 
-;
+                       LD      HL,M4370            ; explosion slot 0
+                       CALL    L0FD8               ; advance alien explosion
+                       LD      HL,M4374            ; explosion slot 1
+                       CALL    L0FD8               ; advance alien explosion
+                       LD      HL,M4378            ; slot 2 (bonus explosion counter)
+                       CALL    L3758               ; advance bonus explosion
+                       LD      HL,M437C            ; slot 3 (bonus explosion)
+                       JP      L3758               ; advance bonus explosion (tail-call)
+;*****************************************************************************
+;* Advance and draw one alien-explosion slot.
+;* HL -> slot record (+0 = counter). Returns immediately if the slot is idle.
+;*****************************************************************************
 L0FD8:
                        LD      A,(HL)              
                        AND     A                   ; updates the zero flag
@@ -3473,6 +3633,9 @@ L0FD8:
                        LD      BC,$FFDF            ; Screen offset constant -33 right one column (-1), up one row (-32)
                        JP      Draw3x2             ; 
 
+;*****************************************************************************
+; ic47
+;*****************************************************************************
                        .ORG $1000
 ; Pointer table to alien movement list (T1700):
 ; Value * 2 ==> LSB of T1700
@@ -3737,27 +3900,40 @@ T1420:
                        .DB $AC, $BC, $AD, $00 ;#38
                        .DB $AA, $BA, $AB, $BB ;#37
 
-;
+;*****************************************************************************
+;* Coin-text fixup, run after each character of the '$18xx' text is printed.
+;* If the coinage DIP bit is set, three positions in the "INSERT COIN"
+;* block are overwritten with alternate glyphs, otherwise the text is
+;* left as printed.
+;* In:  A = printed char, HL = source text ptr ($18xx), DE = screen addr.
+;* The quirky flag trick:
+;* Notice the routine writes to the screen before it tests the match
+;* (`LD (HL),$22` sits before `RET Z`). Because `LD (HL),n` doesn't touch the flags,
+;* the `RET Z` still reflects the preceding `CP`. So on a non match
+;* the "wrong" byte is written but then immediately corrected by the next `LD (HL),...`
+;* (and ultimately by `LD (HL),B` at `$14FC`). It's a code size optimization:
+;* only the last write that is followed by a taken `RET Z` actually sticks.
+;*****************************************************************************
 L14E0:
-                       LD      B,A                 ; save A
-                       LD      A,(DSW0)            ; 78xx DSW0
-                       AND     $10                 ; Coinage
-                       RET     Z                   ; return if no coins entered
-                       EX      DE,HL               ;
-                       LD      A,D                 ;
-                       CP      $18                 ;
-                       RET     NZ                  ;
-                       LD      A,E                 ;
-                       CP      $95                 ;
-                       LD      (HL),$22            ;
-                       RET     Z                   ;
-                       CP      $9A                 ;
-                       LD      (HL),$13            ;
-                       RET     Z                   ;
-                       CP      $B5                 ;
-                       LD      (HL),$24            ;
-                       RET     Z                   ;
-                       LD      (HL),B              ;
+                       LD      B,A                 ; save the printed character
+                       LD      A,(DSW0)            ; 78xx DSW0 (DIP switches)
+                       AND     $10                 ; 0001_0000 Coinage
+                       RET     Z                   ; coinage bit clear -> keep text as-is
+                       EX      DE,HL               ; HL = screen addr, DE = source text ptr
+                       LD      A,D                 ; source MSB
+                       CP      $18                 ; is this the $18xx text block ?
+                       RET     NZ                  ; if not, leave it alone
+                       LD      A,E                 ; source LSB (position within text)
+                       CP      $95                 ; position $1895 ?
+                       LD      (HL),$22            ; overwrite screen char with $22: "2"
+                       RET     Z                   ; ...and done if it was $1895
+                       CP      $9A                 ; position $189A ?
+                       LD      (HL),$13            ; overwrite with $13: "S"
+                       RET     Z                   ; ...done if $189A
+                       CP      $B5                 ; position $18B5 ?
+                       LD      (HL),$24            ; overwrite with $24: "4"
+                       RET     Z                   ; ...done if $18B5
+                       LD      (HL),B              ; otherwise restore the original character
                        RET                         ;
 
                        .ORG $1500
@@ -3993,14 +4169,14 @@ T15E0:
 
 ; Pointer table for character block shapes table (T14xx):
 T1600:
-                       .DB $10, $14, $18, $1C
-                       .DB $00, $04, $08, $0C
-                       .DB $20, $22, $24, $26
-                       .DB $28, $2A, $2C, $2E
-                       .DB $30, $32, $34, $36
-                       .DB $38, $3A, $3C, $3E
-                       .DB $40, $42, $44, $46
-                       .DB $5C, $5C, $5E, $5E
+                       .DB $10, $14, $18, $1C ; to player ship frame #5, #6, #7, #8
+                       .DB $00, $04, $08, $0C ; to player ship frame #1, #2, #3, #4
+                       .DB $20, $22, $24, $26 ; to alien shape #1, #2, #3, #4
+                       .DB $28, $2A, $2C, $2E ; to alien shape #6, #6, #28, #28
+                       .DB $30, $32, $34, $36 ; to alien shape #8, #8, #29, #29
+                       .DB $38, $3A, $3C, $3E ; to alien shape #5, #5, #30, #30
+                       .DB $40, $42, $44, $46 ; to alien shape #7, #7, #31, #31
+                       .DB $5C, $5C, $5E, $5E ; to alien shape #6, #6, #21, #21
 
 ; 8 player bullets for the fine bit shifting
 ; Foreground tiles (no pointer).
@@ -4068,12 +4244,33 @@ T1620:
                        .DB $04, $04, $64
                        .DB $04, $04, $68
                        .DB $04, $04, $6C
-;?
+
+; Alien movement direction table.
+; Positive or negative offset for X and Y.
 T1700:
                        .DB $FF, $FF, $01, $00, $FF, $00, $04, $00, $FC, $00, $00, $FC, $00, $04, $04, $FE ;
                        .DB $FC, $FE, $04, $02, $FC, $02, $00, $04, $00, $04, $00, $04, $00, $04, $FF, $FF ;
                        .DB $FC, $00, $FC, $00, $FC, $00, $FC, $00, $04, $00, $04, $00, $04, $00, $04, $00 ;
                        .DB $04, $FC, $04, $04, $FC, $04, $FC, $FC, $FC, $FC, $FC, $04, $04, $04, $04, $FC ;
+
+; Per-tile hit-window + X-offset table for in-formation aliens:
+; Lookup table used in the player-bullet vs. alien collision routine `L0E10`,
+; specifically for aliens that are still sitting in the base formation.
+; Indexed by the alien tile's character type.
+; How the index is formed:
+; In `L0E10`, the code reads the character drawn under the bullet.
+; After rejecting explosion parts (`≥$C0`), empty cells (`<$60`), and out-of-formation aliens (`≥$68` -> handled by `L0E39`),
+; it's left with in-formation foreground tiles `$60`–`$67`.
+; Meaning of the 4 bytes:
+; Byte 0 — upper bound of the horizontal hit window (`$0E31`): `bulletX & 7` must be < byte 0, else `RET NC` (miss).
+; Byte 1 — lower bound of the hit window (`$0E34`): `bulletX & 7` must be >= byte 1, else `RET C` (miss).
+;          So bytes 0/1 define the `[byte1, byte0)` pixel-column range inside that 8-pixel tile where the alien graphic is actually solid.
+;          (E.g. type 0 = full width `[0,8)`; type 1 = only column 0; type 2 = columns `[1,8)`.)
+; Byte 2 — signed X correction (`$0E70`/`L0E70`): added to the bullet's cell-aligned X to reconstruct the screen X of the hit target,
+;          which is then used to locate the matching alien object in the alien control table at `M4B70`.
+;          Because a formation alien is drawn from several tiles, byte 2 shifts the coordinate from the tile that was hit
+;          back to the alien's anchor X, so the correct alien object is found and killed.
+; Byte 3 — `$FF`, unused padding.
 T1740:
                        .DB $08, $00, $00, $FF, $01, $00, $F8, $FF, $08, $01, $02, $FF, $04, $00, $FA, $FF ;
                        .DB $08, $01, $04, $FF, $08, $00, $FC, $FF, $08, $05, $06, $FF, $08, $00, $FE, $FF ;
@@ -4085,7 +4282,7 @@ T1760:
                        .DB $10, $10, $88, $88, $10, $10, $10, $10 ;
 ;
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF ;
-;
+
 T1770:
                        .DB $EC, $FC, $FD, $F4, $ED, $30, $40, $F5, $EE, $31, $41, $F6, $EF, $FF, $FE, $F7 ; Object 1770 Regular ship, large shields
                        .DB $E8, $F8, $F9, $F0, $E9, $30, $40, $F1, $EA, $31, $41, $F2, $EB, $FB, $FA, $F3 ; Object 1780 Regular ship, small shields
@@ -4122,6 +4319,9 @@ CoinChecking:
 FourByFourEmpty:
                        .DB $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
 
+;*****************************************************************************
+; ic48
+;*****************************************************************************
 ; Screen ram adresses and static texts using setA
 T1800:
                        .DB $43, $20
@@ -4260,16 +4460,22 @@ T1A00:
 ; "%% % % %%% %%% % %% % %  %"
                        .DB $64, $65, $00, $68, $00, $68, $00, $68, $68, $68, $00, $68, $64, $65, $00, $68, $00, $66, $67, $00, $68, $00, $68, $00, $00, $68
 
-;alien character block shapes table using setA (for fade in)
+; Character block shapes table using setB.
+; Parts of the mothership's purple conveyor belt.
+; So an ordinary belt hit:
+; 1. Consumes the bullet (`AND $F7`).
+; 2. Sets the "mother-ship hit" flag `$4366` -> plays the hit sound; no score is awarded.
+; 3. Swaps the hit tile for a "damaged" belt tile from `T1B40/T1B48/T1B50`,
+;    chosen by the bullet's X position (left/right half) and the tile's low nibble
+;     — so the belt visibly chips/breaks apart where you shoot it.
 T1B40:
-                       .DB $6C              ;#9
-                       .DB $6D              ;#10
-                       .DB $6E              ;#11
-                       .DB $6F              ;#12
+                       .DB $6C
+                       .DB $6D
+                       .DB $6E
+                       .DB $6F
 
                        .ORG $1B48
-;character block shapes table using setB
-;parts of the mothership's purple conveyor belt
+; Replacement tiles
 T1B48:
                        .DB $6C, $6D, $6E, $6F, $64, $65, $66, $67, $63, $FF
                        .DB $63, $61, $67, $FF
@@ -4334,6 +4540,8 @@ T1C00:
                        .DB $04, $00, $01, $00, $00, $06, $00, $01, $00, $02, $00, $01, $03, $04, $01, $03, $01, $02, $03, $04
                        .DB $00, $05, $00, $01, $02, $00, $09, $00, $03, $04, $00, $01, $00, $01, $02, $03, $04, $00, $02, $00
 
+; Tail of the star field tile pattern that occupies page `$1C` (`$1C00`–`$1CFF`).
+; It's the remaining 76 bytes that complete the 256 byte star page used to paint the whole background.
                        .DB $00, $01, $02, $00, $03, $04, $00, $06, $00, $00, $01, $00
                        .DB $00, $01, $02, $00, $05, $00, $00, $03, $00, $04, $00, $07, $00, $01, $00, $02
                        .DB $00, $00, $03, $00, $04, $00, $04, $00, $0A, $00, $01, $00, $02, $00, $03, $00
@@ -4391,7 +4599,7 @@ T1E20:
                        .DB $4B, $4A, $49, $48
                        .DB $49, $49, $4A, $4A
                        .DB $48, $49, $4A, $48
-;
+; The low byte (LSB) half of the background screen destination addresses for the (2×2) planets
 T1E40:
                        .DB $A0, $60, $40, $00
                        .DB $E0, $C0, $C0, $60
@@ -4484,6 +4692,10 @@ T1F00:
                        .DB $00, $0C, $00, $00, $03, $00, $00, $07, $00, $00, $00, $04, $00, $00, $06, $00
                        .DB $00, $00, $00, $01, $00, $00, $00, $00, $02, $00, $00, $00, $00, $03, $00, $00
                        .DB $00, $04, $00, $05, $00, $00, $00, $00, $00, $01, $00, $00, $00, $00, $02, $00
+
+;*****************************************************************************
+; h5-ic49.5a
+;*****************************************************************************
 ;*****************************************************************************
 ;* Game level 1, 3 and B:
 ;* 'player alife' with aliens, after 'fade in'
@@ -4564,7 +4776,11 @@ AddGalaxiesToBackground:
                        RET                         ;
 
                        .ORG $2070
-;
+;*****************************************************************************
+;* `L2070`/`L2085` compute the entry offset from the ship position and current phase,
+;* so as `CounterA5` counts down the "lit" cells sweep through the field.
+;* The ship visibly bursts into scattering particles that then thin out and vanish.
+;*****************************************************************************
 L2070:
                        LD      A,E                 
                        SUB     $0A                 
@@ -4655,39 +4871,50 @@ L20E1:
                        RET                         
 
                        .ORG $20E8
-;
+;*****************************************************************************
+;* Draw one 4x4 ship-fragment sprite during the player-ship explosion.
+;* Entry (from L0BC4): A = CounterA5 phase, DE = ship screen address.
+;* Fragment image pointer comes from T1B90; position is scattered using
+;* CounterB9 (via L211C) and the phase.
+;* Purpose:
+;* `L20E8` draws the flying debris sprites of the exploding player ship
+;* (fragment image chosen from `T1B90`, scattered by `CounterB9`/phase,
+;* `L211C` freezing the scroll).
+;*****************************************************************************
 L20E8:
-                       LD      B,A                 
-                       LD      A,D                 
-                       ADD     $08                 
-                       LD      D,A                 
-                       CALL    L211C               ; 
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       ADD     A,E                 
-                       AND     $1F                 
-                       LD      C,A                 
-                       LD      A,E                 
-                       AND     $E0                 
-                       OR      C                   
-                       LD      E,A                 
-                       LD      A,B                 
-                       RRCA                        
-                       RRCA                        
-                       AND     $0E                 
-                       ADD     $90                 
-                       LD      L,A                 
-                       LD      H,$1B               
-                       LD      A,(HL)              
-                       INC     L                   
-                       LD      L,(HL)              
-                       LD      H,A                 
-                       LD      BC,$0404            ; images are 4x4
-                       JP      DrawImageCbyB       ; 
+                       LD      B,A                 ; B = phase (CounterA5)
+                       LD      A,D                 ; 
+                       ADD     $08                 ; nudge the row
+                       LD      D,A                 ; 
+                       CALL    L211C               ; {code.L211C} clamp scroll during explosion
+                       RRCA                        ; 
+                       RRCA                        ; scatter offset from CounterB9
+                       RRCA                        ; 
+                       ADD     A,E                 ; 
+                       AND     $1F                 ; 0001_1111 keep within a column
+                       LD      C,A                 ; 
+                       LD      A,E                 ; 
+                       AND     $E0                 ; 1110_0000 column bits
+                       OR      C                   ; 
+                       LD      E,A                 ; E = scattered LSB
+                       LD      A,B                 ; phase
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       AND     $0E                 ; 0000_1110 -> even index 0..14
+                       ADD     $90                 ; -> T1B90 entry
+                       LD      L,A                 ; 
+                       LD      H,$1B               ; HL = T1B90 + index
+                       LD      A,(HL)              ; fragment image MSB
+                       INC     L                   ; 
+                       LD      L,(HL)              ; fragment image LSB
+                       LD      H,A                 ; HL = fragment image
+                       LD      BC,$0404            ; images are 4x4images are 4x4
+                       JP      DrawImageCbyB       ; draw it
 
                        .ORG $211C
-;
+;*****************************************************************************
+;* Clamp the scroll register to $10 while CounterB9 is in ($10,$30).
+;*****************************************************************************
 L211C:
                        LD      HL,CounterB9        ; 
                        LD      A,(HL)              
@@ -4701,51 +4928,71 @@ L211C:
                        RET                         
 
                        .ORG $2130
-;
+;*****************************************************************************
+;* Per-frame update dispatchers for the alien-wave levels.
+;* B = frame phase (rotating counter). Each phase runs a different subset of
+;* the heavy per-frame work, spreading it across frames.
+;* `L2130`/`L2146`/`L21BA` are the game's per frame level dispatchers:
+;* A rotating frame phase counter (`B`) selects one of several groups of update calls
+;* (`AlienDataController`, `AlienBehaviorUpdate`, `AlienMovementUpdate`,
+;* `AlienAnimationUpdate`, `EnemyBulletUpdate`, collision `L0F00`, killed alien anim `L0FC0`,
+;* bomb drop `L2560`, mothership housekeeping `L24C4`),
+;* so the heavy work is spread over multiple frames.
+;*****************************************************************************
 L2130:
-                       LD      A,B                 ; get masked counter
+                       LD      A,B                 ; frame phase
                        AND     A                   ; updates the zero flag
-                       JP      Z,L2150             ; if = 0
+                       JP      Z,L2150             ; phase 0
                        CP      $01                 ;
-                       JP      Z,L2160             ; if = 1
+                       JP      Z,L2160             ; phase 1
                        CP      $02                 ;
-                       JP      Z,L2170             ; if = 2
-                       JP      L2180               ; counter = 3
+                       JP      Z,L2170             ; phase 2
+                       JP      L2180               ; phase 3
 
                        .ORG $2146
-;
+;*****************************************************************************
+;* Game's per frame level dispatcher (even/odd phase)
+;*****************************************************************************
 L2146:
-                       LD      A,B                 
-                       RRCA                        
-                       JP      NC,L2190            ; 
-                       JP      L21A5               ; 
+                       LD      A,B                 ; 
+                       RRCA                        ; test phase bit 0
+                       JP      NC,L2190            ; even phase
+                       JP      L21A5               ; odd phase
 
                        .ORG $2150
-; masked counter = 0
+;*****************************************************************************
+;* Phase 0
+;*****************************************************************************
 L2150:
                        CALL    AlienDataController ; draw or delete alien
-                       CALL    L3000               ; 
+                       CALL    L3000               ; AlienBehaviorUpdate
                        JP      L0F00               ; 'alien with player' collision check
 
                        .ORG $2160
-; masked counter = 1
+;*****************************************************************************
+;* Phase 1
+;*****************************************************************************
 L2160:
-                       CALL    L24C4               ; 
-                       CALL    L0C40               ; 
-                       CALL    L0D1C               ; 
+                       CALL    L24C4               ; background / mothership housekeeping
+                       CALL    L0C40               ; EnemyBulletUpdate
+                       CALL    L0D1C               ; AlienMovementUpdate
                        JP      L0FC0               ; Handle animations for killed aliens
 
                        .ORG $2170
-; masked counter = 2
+;*****************************************************************************
+;* Phase 2
+;*****************************************************************************
 L2170:
-                       CALL    L0D70               ; 
-                       JP      L2560               ; 
+                       CALL    L0D70               ; AlienAnimationUpdate
+                       JP      L2560               ; try to drop a bomb on the player
 
                        .ORG $2180
-; masked counter = 3
+;*****************************************************************************
+;* Phase 3
+;*****************************************************************************
 L2180:
-                       CALL    L24C4               ; 
-                       CALL    L0C40               ; 
+                       CALL    L24C4               ; background / mothership housekeeping
+                       CALL    L0C40               ; EnemyBulletUpdate
                        CALL    L0A6C               ; get screen ram adress for all aliens
                        JP      L0FC0               ; Handle animations for killed aliens
 
@@ -4753,29 +5000,31 @@ L2180:
 ;
 L2190:
                        CALL    AlienDataController ; draw or delete alien
-                       CALL    L3000               ; 
+                       CALL    L3000               ; AlienBehaviorUpdate
                        CALL    L0F00               ; 'alien with player' collision check
-                       CALL    L2560               ; 
-                       JP      L0C40               ; 
+                       CALL    L2560               ; try to drop a bomb
+                       JP      L0C40               ; EnemyBulletUpdate
 
                        .ORG $21A5
 ;
 L21A5:
-                       CALL    L0D1C               ; 
-                       CALL    L0D70               ; 
+                       CALL    L0D1C               ; AlienMovementUpdate
+                       CALL    L0D70               ; AlienAnimationUpdate
                        CALL    L0A6C               ; get screen ram adress for all aliens
                        CALL    L0FC0               ; Handle animations for killed aliens
-                       JP      L24C4               ; 
+                       JP      L24C4               ; background / mothership housekeeping
 
                        .ORG $21BA
-;
+;*****************************************************************************
+;* Mothership-wave dispatcher (and end-of-wave handling).
+;*****************************************************************************
 L21BA:
                        LD      A,B                 ;
-                       RRCA                        ;
-                       JP      NC,L2204            ; 
-                       CALL    L0C40               ; 
+                       RRCA                        ; test phase bit 0
+                       JP      NC,L2204            ; even phase: end-of-wave countdown (L2204)
+                       CALL    L0C40               ; EnemyBulletUpdate
                        CALL    L0FC0               ; Handle animations for killed aliens
-                       CALL    L24C4               ; 
+                       CALL    L24C4               ; mothership housekeeping
                        LD      A,(LevelAndRound)   ; 
                        AND     $0F                 ; mask out 0000_1111
                        CP      $0B                 ;
@@ -4787,6 +5036,17 @@ L21BA:
                        .ORG $21DC
 ;*****************************************************************************
 ;* Handles the bird animation at intro.
+;* The driver is a single counter, `M4399` 
+;* (the "slow-print" timer that advances during the intro splash).
+;* Its bits are split into two roles:
+;* - `M4399 & 7` -> the bird's animation sub-phase 
+;*   (written to bird-object byte +3, `$4B73`).
+;*   This cycles the wing position 0–7 within the current shape.
+;* - `M4399 >> 3` -> the index into `T233A`, which yields the shape index 
+;*   (written to bird-object byte +0, `$4B70`).
+;* In other words, each entry in `T233A` is held for 8 timer ticks
+;* (one full pass of the low-3-bit phase) before the script advances to the next shape.
+;* `T233A` is therefore "the shape every 8 frames", and the low bits provide the in-between wing flapping.
 ;*****************************************************************************
 DrawIntroBirdAnimationFrame:
                        LD      A,(HL)              ; {ram.M4399} Actual index for slow print at intro splash (starts with $300)
@@ -4816,7 +5076,7 @@ DrawIntroBirdAnimationFrame:
                        .ORG $2204
 ;
 L2204:
-                       LD      HL,M43B6            ; 
+                       LD      HL,M43B6            ; End-of-wave countdown timer
                        DEC     (HL)                ;
                        LD      A,(HL)              ;
                        CP      $A0                 ;
@@ -4847,12 +5107,15 @@ L222A:
                        .ORG $2230
 ;*****************************************************************************
 ;* Game level 4, 6 and 8:
-;* Do the 'spiral fill' animation.
+;* Drives the spiral fade-in animation between waves.
+;* The animation step counter is incremented every frame,
+;* its value indexes the spiral drawing progress,
+;* and when the spiral is complete it advances to the next level.
 ;*****************************************************************************
 L2230:
                        LD      HL,M439C            ; 
                        LD      A,(HL)              ;
-                       INC     (HL)                ;
+                       INC     (HL)                ; advance animation
                        NOP                         ;
                        RRCA                        ;
                        AND     $3F                 ; mask out 0011_1111
@@ -4917,12 +5180,19 @@ L227B:
                        DEC     E                   ; All columns done?
                        JP      NZ,L227A            ; no ... do all columns
                        RET                         ; Done
-;
+;*****************************************************************************
+;* Spiral step
+;*****************************************************************************
 L2292:
                        LD      HL,LevelAndRound    ; 
                        LD      A,(HL)              ;
                        AND     $08                 ; mask out 0000_1000
                        JP      Z,L22F0             ; 
+;*****************************************************************************
+;* Fill the entire background with stars (uses the whole `$1C00`–`$1CFF` page, including `$1CB4`–`$1CFF`).
+;* `L2292` copies the star page into background VRAM from `$4B3F` downward, reading `T1C00` with `INC L`
+;* (which wraps inside page `$1C`), until it has filled `$4800`–`$4B3F`.
+;*****************************************************************************
                        LD      HL,T1C00            ; Background stars to erase mother ship
                        LD      DE,$4B3F            ; End of background screen memory
                        LD      B,$47               ;
@@ -4991,7 +5261,26 @@ L22F0:
                        JP      L22E2               ; 
 
                        .ORG $22FA
-;
+;*****************************************************************************
+;* Rotate the conveyor belt:
+;* How the "rotation" actually works:
+;* Each belt tile is a code in `$60`–`$6F`, i.e. `$60 + p` where `p` is a 4-bit phase (0–15)
+;* that selects which frame of the belt-link graphic is shown. The routine treats that 4-bit phase as two 2-bit halves.
+;* - high half = bits 2–3
+;* - low half = bits 0–1
+;* Walking up the belt column (`L -= $20` each step), every tile is rebuilt as:
+;* new_phase = (previous_tile.low2 << 2) | (current_tile.high2)
+;* new_tile  = $60 | new_phase
+;* In other words:
+;* - a tile's new high 2 bits come from the lower neighbour's old low 2 bits, and
+;* - its new low 2 bits come from its own old high 2 bits.
+;* That is a 2-bit-per-tile shift register running up the column:
+;* Every animation step, the belt-link pattern marches exactly one 2-bit field up the chain.
+;* The seed value read from `$488A` feeds a fresh pattern into the bottom of the chain each step,
+;* so the motion is continuous and never runs out of pattern.
+;* Because the cumulative effect is "every belt segment's pattern shifts one position along the belt each tick",
+;* the row of `$60`–`$6F` tiles cycles through their link graphics in lock-step — which the eye reads as the belt rotating/conveying.
+;*****************************************************************************
 L22FA:
                        LD      HL,BackgroundScreen+$2AA
                        LD      B,$12               
@@ -5039,13 +5328,28 @@ L2322:
                        LD      DE,BackgroundScreen+$1A6; at the middle of the mothership
                        LD      BC,$0402            ; images are 2x4
                        JP      DrawImageCbyB       ; 
-;
-; Bird animation frame indexes at splash intro.
-; Mapping to:?
+; Intro-splash bird animation script table:
+; A list of bird shape indices that, played in order, make the attract-mode bird grow
+; from a twinkling star into a full flapping Phoenix and then shrink back.
+; Used at `DrawIntroBirdAnimationFrame` (`$21DC`).
+; The mapping is a two-level lookup:
+; M4399  --(>>3)-->  T233A[i] = shape index
+;                      |
+;                      +--(*8)--+--(+ M4399&7 phase)--> T3E08 entry --> bird tile-block address
+; So `T233A` is essentially a tiny animation timeline.
+; The index `M4399 >> 3` walks through it, each step lasting 8 ticks (during which `M4399 & 7` animates the wings),
+; turning the abstract growth/flap/shrink choreography into concrete shape indices that `DrawBirdObject` renders.
+; The trailing `FF` signals the end of the script (it's the sentinel the surrounding intro logic uses to know the sequence is finished).
 T233A:
                        .DB $01, $02, $03, $04, $05, $06, $07, $0A, $07, $0A, $07, $0A, $07, $0A, $07, $0A
                        .DB $09, $08, $04, $03, $02, $01, $FF
-;
+
+;*****************************************************************************
+;* Mother-ship collision routine:
+;* During the mother-ship levels (game level ≥ 8), `L2000` -> `L24A0` calls `L2351`.
+;* It looks up the tile at the (scroll-adjusted) bullet position 
+;* and explicitly tests for the `$4C`–`$4F` group.
+;*****************************************************************************
 L2351:
                        LD      A,(DE)              
                        AND     $08                 
@@ -5075,7 +5379,18 @@ L2351:
                        CP      $60                 
                        JP      Z,L2398             ; 
                        RET                         
-; The mothership's protective shield was hit by a player bullet.
+;*****************************************************************************
+;* The mothership's protective shield was hit by a player bullet.
+;* Shield erosion.
+;* So a hit on a `$4C`–`$4F` tile does the following, with no score awarded:
+;* 1. The bullet is consumed (`AND $F7` clears the active bit) — the shot stops there; it does not punch through.
+;* 2. A "mother-ship hit" is registered (`$4366 = $FF`), which drives the hit sound effect.
+;* 3. The tile is decremented one step: `$4F -> $4E -> $4D -> $4C -> $4B`.
+;*    Because the four tiles are an increasing-density gradient, each shot visually "chips" the curved armour one notch thinner.
+;* 4. When a tile erodes to `$4B` it's cleared to `$00` (that chunk of shield is gone).
+;*    If the tile behind it is the solid hull `$5E`, that hull tile is turned into a fresh `$4F`,
+;*    i.e. the next layer of hull becomes the new erodible shield edge.
+;*****************************************************************************
 L237B:
                        LD      A,(DE)              
                        AND     $F7                 
@@ -5096,7 +5411,9 @@ L237B:
                        RET                         
 
                        .ORG $2398
-;
+;*****************************************************************************
+;* Belt-hit handler:
+;*****************************************************************************
 L2398:
                        LD      A,(DE)              
                        AND     $F7                 
@@ -5123,7 +5440,12 @@ L23AC:
                        RET                         
 
                        .ORG $23C0
-; The mothership will be destroyed if an alien pilot is hit.
+;*****************************************************************************
+;* The mothership will be destroyed if an alien pilot is hit.
+;* If the hit lands on the belt segment directly in front of the alien pilot,
+;* `L23AC` takes the `JP Z,L23C0` branch instead, which checks whether the tile behind
+;* is a pilot tile (`$70`-range) and, if so, destroys the mother ship.
+;*****************************************************************************
 L23C0:
                        DEC     L                   
                        LD      A,(HL)              
@@ -5158,8 +5480,8 @@ L23D6:
                        RET     C                   ; if game level is 9 (mothership 'fade in')
                        CP      $0B                 ;
                        JP      C,L3B02             ; if game level is B (mothership)
-                       CALL    L3B02               ; 
-                       JP      L3A98               ; 
+                       CALL    L3B02               ; Background sound for level B (mothership)
+                       JP      L3A98               ; Background sound for the alien waves
 
                        .ORG $2400
 ;*****************************************************************************
@@ -5239,7 +5561,9 @@ L244C:
                        JP      ClearForeground     ; 
 
                        .ORG $246A
-;
+;*****************************************************************************
+;* EraseMothership:
+;*****************************************************************************
 EraseMothership:
                        LD      BC,$0914            ; 20x9 image
                        LD      DE,$4AC6            ; Screen coordinate of mother ship
@@ -5260,11 +5584,12 @@ L2476:
                        ADD     A,(HL)              
                        RLCA                        ; Multiply by 2
                        LD      B,A                 
-                       LD      L,$6F               
+; Attack timing / launch slot
+                       LD      L,$6F               ; $436F (random)
                        LD      A,(HL)              
                        AND     $1E                 
-                       ADD     A,B                 
-                       LD      (M4BD1),A           ; 
+                       ADD     A,B                 ; B from (8-BirdsLeft) & Counter9A
+                       LD      (M4BD1),A           ; descent turnaround threshold (max depth)
                        RET                         
 
                        .ORG $2495
@@ -5297,7 +5622,12 @@ L24A0:
                        JP      L24F2               ; 
 
                        .ORG $24C4
-;
+;*****************************************************************************
+;* The mother-ship level handlers (`L2130`/`L2146`/`L21BA`/`L21C5`) all call `L24C4` every frame.
+;* `L24C4` bumps a frame counter (`$43AA`) and time-slices two animations:
+;* The antenna/pilot animation `L2322` runs on 3 of every 4 frames,
+;* and the belt rotation `L22FA` runs on the 4th.
+;*****************************************************************************
 L24C4:
                        LD      A,(LevelAndRound)   ; 
                        AND     $0F                 ; mask out 0000_1111
@@ -5323,7 +5653,16 @@ L24E0:
                        JP      StarsScrollDown     ; 
 
                        .ORG $24F2
-;
+;*****************************************************************************
+;* Mother ship bomb attack (reached from L24A0 on level >= 8, when
+;* Counter9A+1 & 3 == 3). Randomly targets the player's column, then fires.
+;* Purpose:
+;* On mother ship levels this fires a bomb only when a random number happens
+;* to line up horizontally with the player ship (a "semi aimed" attack,
+;* further rate limited by the `Counter9A` gate). It builds the bomb's `B`=X / `C`=Y
+;* (Y derived from the scroll counter) and jumps into the shared spawner `L25B7`.
+;* The two `PUSH HL` match the two `POP HL` that `L25B7`/`L25E0` do on exit.
+;*****************************************************************************
 L24F2:
                        CALL    GetRandomNumber     ; 
                        ADD     $60                 
@@ -5399,6 +5738,15 @@ L2552:
                        RET                         
 
                        .ORG $2560
+;*****************************************************************************
+;* Alien bomb-drop: pick a group of 8 aliens, find one lined up with the
+;* player at attack depth, and fire an enemy bullet at it.
+;* Purpose:
+;* `L2560` is the alien bomb drop selector. 
+;* It picks one of two 8 alien groups (alternating on `Counter93`),
+;* computes the player's horizontal window (`B`,`C`) and the required attack depth `D`
+;* (scaled by the attack escalation counter `$4357`), then scans the group with `L2596`.
+;*****************************************************************************
 L2560:
                        LD      HL,Counter93            ; 
                        LD      A,(HL)              
@@ -5435,7 +5783,12 @@ L2588:
                        DEC     E                   
                        JP      NZ,L2588            ; 
                        RET                         
-;
+;*****************************************************************************
+;* Per-alien attack candidacy test. HL -> alien entry.
+;* Must be active, valid shape, horizontally over the player, and deep enough.
+;* `L2596` accepts an alien that is active, a valid shape, horizontally over the player,
+;* and deep enough on screen. When one qualifies it loads its position into `B`/`C` and drops into `L25B7`.
+;*****************************************************************************
 L2596:
                        LD      A,(HL)              
                        AND     $08                 
@@ -5466,6 +5819,12 @@ L2596:
                        LD      C,A                 
                        DEC     L                   
                        LD      B,(HL)              
+;*****************************************************************************
+;* Fire the enemy bullet (shared by alien and mother-ship attacks):
+;* Finds a free enemy-bullet slot (max 3/4/5 depending on round) and,
+;* if one exists, activates it at `(B,C)`; if all slots are busy
+;* it returns up two stack levels (cancelling the scan for this frame).
+;*****************************************************************************
 L25B7:
                        LD      A,(LevelAndRound)   ; 
                        LD      D,$03               ;
@@ -5491,6 +5850,13 @@ L25CD:
                        RET                         
 
                        .ORG $25E0
+;*****************************************************************************
+;* Bullet spawner:
+;* It fills that slot — marking it active, computing a bullet character/type from the position,
+;* and storing the X/Y. The paired `POP HL` at the ends unwind the two dummy
+;* stack frames the callers pushed, so control returns cleanly
+;* regardless of whether a bullet was actually fired.
+;*****************************************************************************
 L25E0:
                        LD      A,B                 
                        ADD     $04                 
@@ -5629,7 +5995,7 @@ L26A3:
 
                        .ORG $26AA
 L26AA:
-                       LD      HL,M4BD3            ; 
+                       LD      HL,M4BD3            ; countdown timer between bird attacks ("bird extended storage")
                        LD      A,(HL)              
 L26AE:
                        DEC     (HL)                
@@ -5646,6 +6012,7 @@ L26AE:
                        SUB     (HL)                
                        RLCA                        ; Multiply by 2
                        LD      B,A                 
+; Attack sub-pattern selector
                        LD      A,(M436F)           ; 
                        AND     $03                 
                        LD      L,$D4               
@@ -5735,7 +6102,9 @@ L2739:
                        JP      L3A10               ; 
 
                        .ORG $2748
-; Add score values for enemies hit.
+;*****************************************************************************
+;* Add score values for enemies hit.
+;*****************************************************************************
 L2748:
                        LD      A,(DE)              ; get $4370
                        INC     E                   ;
@@ -5761,7 +6130,16 @@ L2748:
                        RET                         ;
 
                        .ORG $2768
-;
+;*****************************************************************************
+;* Score-display
+;* Together with `$43BE` (`BonusLivesAt`), these make a contiguous 3 byte BCD value
+;* (`$43BD` = low, `$43BE` = middle, `$43BF` = high).
+;* `$43BE` is loaded from the DIP switches to `$30/$40/$50/$60`,
+;* the "extra ship at 3000/4000/5000/6000 points" setting,
+;* and `$43BD`/`$43BF` are its companion digit bytes (zeroed at init).
+;* This 3-byte threshold is checked against the player's score,
+;* using the 3 byte BCD compare `L0314`.
+;*****************************************************************************
 L2768:
                        PUSH    HL                  
                        LD      DE,$4261            ; end of the screen area of player 1 score
@@ -5862,8 +6240,14 @@ L27E9:
                        LD      (HL),$8F            
                        RET                         
 
+;*****************************************************************************
+; h6-ic50.6a
+;*****************************************************************************
                        .ORG $2800
-;foreground tiles of the player ship particles explosion
+; Foreground tiles of the player ship particles explosion:
+; This is the character code to draw in each cell of the explosion field.
+; Non zero bytes are the debris glyphs (`E0 E1 E2`, `C1 C2 C3`, `3D 3B 30 32 42 5A 4D 4F`, ...).
+; `00` means "no particle in this cell".
 T2800:
                        .DB $00, $32, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $42, $42
                        .DB $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $E1, $00, $00, $E2, $00, $00
@@ -5882,7 +6266,11 @@ T2800:
                        .DB $00, $3B, $00, $00, $00, $00, $00, $00, $00, $C2, $00, $00, $00, $4F, $00, $00
                        .DB $00, $00, $3B, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $4D, $4D
 
-;control data of the player ship particles explosion
+; Control data of the player ship particles explosion:
+; `T2900` is paired 1:1 with `T2800` and holds a 1 bit per cell "draw/erase" flag.
+; The renderer `L2070`->`L2085`->`L20B0` selects a phase offset into both tables,
+; then processes cells 8 at a time: it clears each screen cell, rotates a control byte,
+; and only where a bit is set does it stamp the matching `T2800` tile.
 T2900:
                        .DB $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $20, $00, $38
                        .DB $00, $34, $00, $28, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
@@ -5901,7 +6289,7 @@ T2900:
                        .DB $02, $80, $00, $04, $00, $00, $40, $00, $00, $00, $00, $00, $00, $00, $00, $00
                        .DB $01, $00, $00, $00, $00, $00, $40, $00, $00, $00, $00, $00, $00, $02, $04, $08
 
-;foreground, $tiles of the mothership particles explosion
+; Foreground tiles of the mothership particles explosion
 T2A00:
                        .DB $00, $00, $00, $00, $00, $00, $00, $D2, $00, $00, $00, $00, $00, $00, $00, $00
                        .DB $00, $00, $00, $00, $00, $DE, $00, $5E, $E0, $00, $00, $E1, $00, $00, $00, $00
@@ -5920,7 +6308,7 @@ T2A00:
                        .DB $00, $00, $00, $00, $00, $DE, $00, $E1, $D3, $00, $E2, $00, $00, $00, $00, $00
                        .DB $00, $00, $00, $00, $00, $00, $00, $5E, $D0, $00, $00, $00, $00, $00, $00, $00
 
-;control data of the mothership particles explosion
+; Control data of the mothership particles explosion
 T2B00:
                        .DB $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $80, $01, $40, $02, $80, $05
                        .DB $A0, $01, $40, $02, $00, $01, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00
@@ -6059,10 +6447,16 @@ T2FA0:
                        .DB $05, $05, $02, $02, $02, $05, $1C, $08, $08, $07, $07, $08, $08, $08, $00, $FF
 
 ;*****************************************************************************
+; h7-ic51.7a
+;*****************************************************************************
+
+;*****************************************************************************
 ;* AlienBehaviorUpdate.
 ;* This is the 'core of the matter'!
-;* It handles all attack patterns of the aliens
-;* and the randomization of selection.
+;* The 'core of the matter': drives every alien attack pattern and the
+;* randomized selection. One sub-task runs per frame, chosen round-robin by
+;* Counter93 (0-7) via jump table T3018. The sub-tasks cooperate through the
+;* behavior state machine at $4350 and the control block $4350-$435B.
 ;* The selected patterns do always fit on the screen,
 ;* even if the alien formation is further down. (phase 1, 2, 3)
 ;*****************************************************************************
@@ -6080,7 +6474,9 @@ L3000:
                        LD      L,(HL)              ; get LSB from jump table
                        LD      H,A                 ;
                        JP      (HL)                ; jump to the corresponding function
-; from jump table T3018 if Counter93 is 7
+;*****************************************************************************
+;* Sub-task 7: Do nothing.
+;*****************************************************************************
 L3012:
                        RET                         ;
 
@@ -6088,18 +6484,20 @@ L3012:
 ;
 T3018:
                        .MSFIRST
-                       .DW L3264 ; if Counter93 is 0
-                       .DW L3028 ; if Counter93 is 1
-                       .DW L30BA ; if Counter93 is 2
-                       .DW L3124 ; if Counter93 is 3
-                       .DW L315A ; if Counter93 is 4
-                       .DW L31B4 ; if Counter93 is 5
-                       .DW L322C ; if Counter93 is 6
-                       .DW L3012 ; if Counter93 is 7
+                       .DW L3264 ; 0 -> L3264  install chosen pattern / rotate start pointer
+                       .DW L3028 ; 1 -> L3028  'Angry movement A/B' (push formation down)
+                       .DW L30BA ; 2 -> L30BA  tick attack-delay + group timers
+                       .DW L3124 ; 3 -> L3124  decide how many aliens attack
+                       .DW L315A ; 4 -> L315A  pick a random alien to attack
+                       .DW L31B4 ; 5 -> L31B4  choose the closed-loop swoop pattern
+                       .DW L322C ; 6 -> L322C  confirm pattern start across the grid
+                       .DW L3012 ; 7 -> L3012  (nop)
 
-; from jump table T3018 if Counter93 is 1.
-; Do the 'Angry movement pattern A/B' (pattern 26/28).
-; After that, the alien formation is further down on the screen.
+;*****************************************************************************
+;* Sub-task 1: 'Angry movement pattern A/B' (pattern 26/28).
+;* Every $4358 frames, escalate $4357 and re-arm the downward-push pattern
+;* (T2E00/T2E40), so the formation creeps further down the screen.
+;*****************************************************************************
 L3028:
                        LD      HL,M4357            ; 
                        LD      A,(HL)              
@@ -6134,7 +6532,9 @@ L3028:
                        RET                         
 
                        .ORG $305C
-; End of movement pattern reached. Get the next start pointer.
+;*****************************************************************************
+;* End of movement pattern reached. Get the next start pointer.
+;*****************************************************************************
 L305C:
                        CALL    L3074               ; 
                        LD      HL,M4357            ; 
@@ -6150,7 +6550,10 @@ L305C:
                        RET                         ;
 
                        .ORG $3074
-;
+;*****************************************************************************
+;* Build a scaled random magnitude in C from round, level, aliens-left and
+;* a random number. Used to size timer spans and attacker counts.
+;*****************************************************************************
 L3074:
                        LD      HL,LevelAndRound    ; 
                        LD      A,(HL)              
@@ -6208,7 +6611,10 @@ GetRandomNumber:
                        RET                         ;
 
                        .ORG $30BA
-; from jump table T3018 if Counter93 is 2
+;*****************************************************************************
+;* Sub-task 2: tick the three staggered group timers and the attack delay.
+;* When the delay $4355 expires (in state 0) begin a new attack (state 1).
+;*****************************************************************************
 L30BA:
                        LD      HL,M4358            ; 
                        CALL    L30DA               ; for $4359
@@ -6229,7 +6635,9 @@ L30BA:
                        RET                         
 
                        .ORG $30DA
-;
+;*****************************************************************************
+;* Tick one timer (does not go below 0).
+;*****************************************************************************
 L30DA:
                        INC     L                   
                        LD      A,(HL)              
@@ -6239,6 +6647,9 @@ L30DA:
                        RET                         
 
                        .ORG $30E4
+;*****************************************************************************
+;* Recompute the attack delay $4355 and reload the 3 group timers.
+;*****************************************************************************
 L30E4:
                        CALL    L3074               ; 
                        LD      HL,Counter9A        ; 
@@ -6267,7 +6678,9 @@ L30F2:
                        RET                         
 
                        .ORG $3112
-;
+;*****************************************************************************
+;* Reload one group timer (only if it is currently 0).
+;*****************************************************************************
 L3112:
                        INC     L                   
                        LD      A,(HL)              
@@ -6285,8 +6698,11 @@ L3112:
                        RET                         
 
                        .ORG $3124
-; from jump table T3018 if Counter93 is 3
-; Calculate the number of aliens in formation flying.
+;*****************************************************************************
+;* Sub-task 3: in state 1, advance to state 2 and compute the number of
+;* aliens that will fly the swoop ($4353), from round + random, reduced as
+;* the escalation counter $4357 grows.
+;*****************************************************************************
 L3124:
                        LD      HL,M4350            ; 
                        LD      A,(HL)              
@@ -6317,7 +6733,11 @@ L314B:
                        RET                         
 
                        .ORG $315A
-; from jump table T3018 if Counter93 is 4
+;*****************************************************************************
+;* Sub-task 4: in state 2, scan the 16-alien grid from a random offset for
+;* an active alien whose control bytes match the current start pointer.
+;* The first match is recorded in $4354 and state advances to 3.
+;*****************************************************************************
 L315A:
                        LD      HL,M4350            ; 
                        LD      A,(HL)              
@@ -6358,7 +6778,9 @@ L318A:
                        RET                         
 
                        .ORG $3192
-;
+;*****************************************************************************
+;* Match test: active alien whose control bytes equal the start pointer.
+;*****************************************************************************
 L3192:
                        LD      A,(DE)              
                        AND     $08                 
@@ -6380,8 +6802,12 @@ L3192:
                        RET                         
 
                        .ORG $31B4
-; from jump table T3018 if Counter93 is 5
-; Get the next closed loop pattern.
+;*****************************************************************************
+;* Sub-task 5: in state 3, choose the closed-loop swoop pattern for the
+;* selected alien based on its position relative to the player (T3300),
+;* its row/phase (L3210 + T3310) and a random pick (T3330). Pattern pointer
+;* is stored at $4351/$4352 and state advances to 5.
+;*****************************************************************************
 L31B4:
                        LD      A,(M4350)           ; 
                        CP      $03                 
@@ -6446,27 +6872,31 @@ L31D6:
                        RET                         
 
                        .ORG $3210
-; Get the attack phase at B.
-; Depending on alien screen coordinate Y.
+;*****************************************************************************
+;* Get the attack phase at Reg. B (0..3) from the alien Y (only when one attacker).
+;*****************************************************************************
 L3210:
-                       LD      A,(M4353)           ; 
-                       CP      $01                 
-                       RET     NZ                  ; if <> 1
-                       LD      A,D                 
-                       LD      B,$00               
-                       CP      $58                 
-                       RET     C                   
-                       LD      B,$01               
-                       CP      $78                 
-                       RET     C                   
-                       LD      B,$02               
-                       CP      $98                 
-                       RET     C                   
-                       LD      B,$03               
-                       RET                         
+                       LD      A,(M4353)           ; Number of aliens doing the closed loop pattern
+                       CP      $01                 ; 
+                       RET     NZ                  ; only meaningful for 1
+                       LD      A,D                 ; alien screen coordinate Y
+                       LD      B,$00               ; return B = phase 0
+                       CP      $58                 ; 
+                       RET     C                   ; if alien screen coordinate Y < $58
+                       LD      B,$01               ; return B = phase 1
+                       CP      $78                 ; 
+                       RET     C                   ; if alien screen coordinate Y < $78
+                       LD      B,$02               ; return B = phase 2
+                       CP      $98                 ; 
+                       RET     C                   ; if alien screen coordinate Y < $98
+                       LD      B,$03               ; return B = phase 3
+                       RET                         ; 
 
                        .ORG $322C
-; from jump table T3018 if Counter93 is 6
+;*****************************************************************************
+;* Sub-task 6: in state 4 (angry path), verify all active aliens carry the
+;* start pointer, then advance to state 6.
+;*****************************************************************************
 L322C:
                        LD      A,(M4350)           ; 
                        CP      $04                 
@@ -6502,7 +6932,12 @@ L324E:
                        RET                         
 
                        .ORG $3264
-; from jump table T3018 if Counter93 is 0
+;*****************************************************************************
+;* Sub-task 0: rotate the 'start value list' pointer $4356 (0-15). If a
+;* pattern is fully prepared (state >= 5), reset to state 0 and write the
+;* chosen closed-loop pattern pointer into the movement slots ($4B50) of the
+;* matching aliens - launching the actual swoop.
+;*****************************************************************************
 L3264:
                        LD      HL,M4395            ; 
                        LD      A,(HL)              ;
@@ -6555,7 +6990,19 @@ L32AB:
                        JP      NZ,L328F            ; 
                        RET                         
 
-;
+;*****************************************************************************
+;* Bird-level init:
+;* First clears `$4B70`–`$4BAF`, then copies `BirdsLeft × 8` bytes from table T3F80
+;* into the object array, choosing the source block by level.
+;* So when a full wave starts (`BirdsLeft = 8`, `C = $40`),
+;* the source LSB resolves to `$80` -> it copies the whole table starting at `$3F80` into `$4B70`,
+;* meaning `$3F80`–`$3F87` becomes the live control block of bird #0 at `$4B70`.
+;* (If fewer birds are present, both source and destination are offset toward the end of their respective arrays,
+;* so the remaining birds are taken from the tail of the table.)
+;* The `LevelAndRound` bit test redirects the source to `$3FC0` for levels 4/9.
+;* After the copy, these objects are driven by the bird routines — e.g. `DrawFirst4BirdObjects`/`DrawSecond4BirdObjects`
+;* and `L35B0`, all of which iterate the array in 8 byte steps (`ADD $08`) over `$4B70`–`$4BAF`, confirming the 8 byte-per-bird structure.
+;*****************************************************************************
 L32B0:
                        LD      HL,M4350            ; 
                        LD      B,$30               ; 4350 to 437F
@@ -6592,10 +7039,11 @@ L32B0:
                        JP      CopyBbytesHLtoDE    ; 
 
                        .ORG $3300
-; Mapping table for T3310.
+; Maps "distance from player" -> T3310 group.
 T3300:
                        .DB $00, $01, $02, $02, $03, $03, $03, $03
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+
 ; Pointer table for T3330.
 ; T1160, T1020, T1020, T10A8
 ; T1160, T1020, T1020, T2C90...
@@ -6605,7 +7053,8 @@ T3310:
                        .DB $88, $90, $98, $A0, $68, $70, $78, $80, $48, $50, $58, $60, $48, $30, $38, $40
                        .DB $88, $90, $98, $A0, $A8, $B0, $B8, $C0, $C8, $D0, $D8, $E0, $C8, $E8, $F0, $F8
 
-; Base adresses of closed loops pattern tables for aliens.
+; Base adresses of closed loop pattern tables for aliens:
+; The actual flight paths the aliens follow.
 ; T1130, T2C00, T2FA0...
 T3330:
                        .MSFIRST
@@ -6898,7 +7347,18 @@ L3558:
                        RET                         ;
 
                        .ORG $3560
-;
+;*****************************************************************************
+;* Bird-launch setup:
+;* Decides the parameters of the next incoming bird group.
+;* Builds a random horizontal jitter, then composes an index from the current game state.
+;* The index is `bit5(timing) | round(bits 3 4) | (BirdsLeft 1)(bits 1 2)`,
+;* which spans `$00`–`$3E` in steps of 2 -> addresses `$3E80`–`$3EBE`.
+;* So the table is 32 two byte entries, selected by:
+;* - Game round (`LevelAndRound`, clamped at round 4) -> one of 4 difficulty groups
+;* - Birds remaining (`BirdsLeft 1`, clamped to 0–3) -> entry within the group
+;* - A timing bit from `Counter9A` -> alternates between the two halves of the table
+;* They're then consumed by the bird movement/attack code.
+;*****************************************************************************
 L3560:
                        CALL    GetRandomNumber     ; 
                        LD      B,A                 ;
@@ -6944,7 +7404,13 @@ L3586:
                        RET                         
 
                        .ORG $35B0
-;
+;*****************************************************************************
+;* The dispatch trick:
+;* `L35B0` is called with `HL` -> the bird's record.
+;* It reads the state index at record offset +0, then (crucially) advances `HL`
+;* to offset +4 and passes that pointer along.
+;* It then looks up `T3F00 + index*8` and pushes four 16 bit values, then does `RET`.
+;*****************************************************************************
 L35B0:
                        LD      A,(HL)              ; get index character block shape
                        AND     A                   ; updates the zero flag
@@ -6988,6 +7454,14 @@ L35BE:
                        PUSH    BC                  ; to stack
                        EX      DE,HL               ;
                        RET                         ; calls the 2nd address
+;*****************************************************************************
+;* Because the 2nd address was pushed last, `RET` jumps there first. So the sequence is:
+;* 1. `RET` -> 2nd address (`$35E0` or `$36C0`) runs first, with `HL` = bird record +4.
+;*    These are the movement / animation routines. They do their work and finish with their own `RET`.
+;* 2. That `RET` pops the next stack item — the 1st address (`$36CC`, `$36D2`, `$36EA`, or `$370A`)
+;*     — and jumps there. These are the state transition routines.
+;*     They begin by popping the two constants and the bird pointer back off the stack.
+;*****************************************************************************
 
                        .ORG $35E0
 ; called by $35B0
@@ -7153,6 +7627,7 @@ L3695:
                        CP      B                   
                        JP      C,L36AB             ; 
                        LD      B,A                 
+; for the mirrored launch direction.
 L36AB:
                        LD      A,(M436D)           ; 
                        ADD     $08                 
@@ -7234,7 +7709,36 @@ L36EA:
                        RET                         
 
                        .ORG $370A
+;*****************************************************************************
 ; called by $35B0
+;* `L370A` is one of the four 1st address (state transition) handlers,
+;* selected by table entries `6`, `7`, `A`, and `F`.
+;* It runs after the frame's movement handler and decides whether the bird
+;* has finished its current growth phase; if so, it advances the bird to
+;* its next state and records progress in the global bird maturity flags `$4368`.
+;* Bird record fields it touches (relative to the +4 pointer it receives):
+;* offset +0 (via `-4`) = state index (the `T3F00` selector / character block shape),
+;* offset +4 = phase timer, offset +6 = sub counter.
+;* Step by step:
+;* 1. Recover parameters (`$370A`–`$370C`): pops the two `T3F00` constants for this state
+;*    into `DE`/`BC` and the bird pointer into `HL`.
+;* 2. Gate on completion (`$370D`–`$3715`): if the phase timer (offset +4) is still non zero,
+;*    or the low nibble of the sub counter (offset +6) is non zero,
+;*    the bird hasn't finished this growth phase yet, so it returns and leaves the state unchanged.
+;* 3. Default transition (`$3716`–`$371D`): once idle, it programs the *next* state
+;*    — new phase timer = `B` (table byte +0), new state index = `D` (table byte +2).
+;* 4. Record maturity (`$371E`–`$3723`): sets bit 2 (`$04`) of the global bird maturity flags at `$4368`.
+;* 5. Optional randomized branch (`$3726`–`$373E`): it samples the per wave random seed `$436F`,
+;*    masks it with table byte +3 (`E`) and tests the high nibble. If that misses (`RET NZ` not taken),
+;*    it *overrides* the transition — state index becomes `E & $0F`, phase timer becomes `C` (table byte +1)
+;*    — and sets an additional maturity bit 3 (`$08`).
+;* In other words, `L370A` is the "this bird has finished growing one stage" handler:
+;* it either promotes the bird to a fixed next shape or, with a seed driven probability,
+;* diverts it to an alternate shape, and it ticks up the flock's maturity progress in `$4368`
+;* so the wave logic knows how far the birds have developed. The sibling handlers work the same way
+;* but set different maturity bits: `L36D2` sets bit 0 (`$01`), `L36EA` sets bit 1 (`$02`),
+;* and `L36CC` is the plain "pop and return" terminator with no transition.
+;*****************************************************************************
 L370A:
                        POP     DE                  
                        POP     BC                  
@@ -7359,8 +7863,10 @@ L379F:
                        JP      Draw3x2             ; 
 
                        .ORG $37B0
-; Prints the score value in the middle of the bonus explosion animation.
-; First two digits are from $4379. Last digit is ever 0.
+;*****************************************************************************
+;* Prints the score value in the middle of the bonus explosion animation.
+;* First two digits are from $4379. Last digit is ever 0.
+;*****************************************************************************
 L37B0:
                        INC     L                   ;
                        LD      A,(HL)              ;
@@ -7402,9 +7908,16 @@ L37DD:
                        JP      NZ,L37DD            ; 
                        RET                         
 
+;*****************************************************************************
+; h8-ic52.8a
+;*****************************************************************************
+
                        .ORG $3800
 ;*****************************************************************************
 ;* Collision detection for birds.
+;* The routine computes a shape index `B = displayedChar − $90`,
+;* and loads the bullet's pixel column bit into `C` from `T3E00[PlayerBulletX & 7]`.
+;* It then does two mask tests against the same `C`.
 ;*****************************************************************************
 L3800:
                        LD      A,(PlayerBulletState)
@@ -7448,7 +7961,9 @@ L3800:
                        CALL    C,L3844             ; 
                        JP      L391C               ; 
 
-; A bird has been hit
+;*****************************************************************************
+;* A bird has been hit
+;*****************************************************************************
 L3844:
                        ADD     $60                 ; LSB of table T3B60
                        LD      L,A                 
@@ -7506,7 +8021,10 @@ L3894:
                        JP      L38F8               ; 
 
                        .ORG $38A1
-;
+;*****************************************************************************
+;* Clears the hit cell and even contains the game's copy protection check that
+;* reads the "R" of "AMSTAR ELECTRONICS CORP." — corrupting the bird graphics if patched.
+;*****************************************************************************
 L38A1:
                        PUSH    DE                  
                        LD      C,$20               
@@ -7515,9 +8033,11 @@ L38A1:
                        LD      D,(HL)              
                        INC     HL                  
                        LD      E,(HL)              
-; This is a simple protection against plagiarism !
-; Changing this single letter will result in a disturbing graphics garbage,
-; when you hit a bird.
+;*****************************************************************************
+;* This is a simple protection against piracy !
+;* Changing this single letter will result in a disturbing graphics garbage,
+;* when you hit a bird.
+;*****************************************************************************
                        LD      A,(L198C)           ; First letter 'R' from: " AMSTAR ELECTRONICS CORP. "
                        ADD     $DE                 ; 1101_1110
                        LD      L,A                 
@@ -7527,7 +8047,9 @@ L38A1:
                        RET                         
 
                        .ORG $38BC
-;
+;*****************************************************************************
+;* Test the wing mask
+;*****************************************************************************
 L38BC:
                        ADD     $B0                 
                        LD      L,A                 
@@ -7558,7 +8080,9 @@ L38BC:
                        LD      H,$3D               
                        LD      A,(HL)              
                        LD      (DE),A              
-; A bird's wing was hit
+;*****************************************************************************
+;* A bird's wing was hit
+;*****************************************************************************
 L38E9:
                        LD      A,$FF               
                        LD      (M4366),A           ; 
@@ -7593,15 +8117,20 @@ L3906:
                        AND     $F7                 
                        LD      (PlayerBulletState),A
                        RET                         
-;
+
+;*****************************************************************************
+;* Wing mask (`$3BB0`+B) — `L38BC`, reached from `L391C` when `B >= $20`.
+;*****************************************************************************
 L391C:
                        LD      A,B                 
                        CP      $20                 
                        JP      NC,L38BC            ; 
                        RET                         
 
-; Trigger the melody chip for 'Elise',
-; if flag for: 'mother ship score display' is set.
+;*****************************************************************************
+;* Trigger the melody chip for 'Elise',
+;* if flag for: 'mother ship score display' is set.
+;*****************************************************************************
 L3923:
                        RET     Z                   
                        DEC     (HL)                
@@ -7613,7 +8142,14 @@ L3923:
                        RET                         
 
                        .ORG $3930
-;
+;*****************************************************************************
+;* Bird bomb-drop dispatcher:
+;* For the birds currently in the active scroll band (from T3DC0),
+;* check which sit over the player and have them drop a bomb.
+;* The active-object window (start index + count) comes from `T3DC0`
+;* indexed by the scroll phase; the player danger window `(B,C)`
+;* is the player's mapped X position widened by `D` (from `L3A00`).
+;*****************************************************************************
 L3930:
                        LD      A,(M4BD2)           ; 
                        AND     $1E                 
@@ -7643,7 +8179,10 @@ L394C:
                        RET                         
 
                        .ORG $395C
-;
+;*****************************************************************************
+;* Per-bird bomb test:
+;* HL -> bird object.  B/C = player danger window (left/right).
+;*****************************************************************************
 L395C:
                        LD      A,(HL)              
                        CP      $05                 
@@ -7672,13 +8211,21 @@ L395C:
                        JP      L25B7               ; 
 
                        .ORG $3980
-;
+;*****************************************************************************
+;* Player shield vs. bird collision sweep:
+;* Active while the formation is in a vertical band.
+;* Borrows the player-bullet vars to probe a column above the ship,
+;* destroying birds the shield touches, then ticks the shield timer.
+;*****************************************************************************
 L3980:
                        LD      A,(M4BD2)           ; 
                        SUB     $0C                 
                        RET     C                   
                        CP      $10                 
                        RET     NC                  
+;*****************************************************************************
+;* --- save the real player bullet state into the $4BC0 buffer ---
+;*****************************************************************************
                        LD      HL,PlayerBulletState
                        LD      DE,M4BC0            ; 
                        LD      B,$04               
@@ -7686,6 +8233,9 @@ L3980:
                        LD      L,$E6               
                        LD      B,$02               
                        CALL    CopyBbytesHLtoDE    ; 
+;*****************************************************************************
+;* --- aim the probe at the player ship and force it "active" ---
+;*****************************************************************************
                        LD      L,$E2               
                        LD      DE,AbovePlayerBulletMSB
                        LD      B,$02               
@@ -7708,6 +8258,12 @@ L3980:
 L39BF:
                        LD      A,(DE)              
                        LD      (PlayerBulletX),A   ; 
+;*****************************************************************************
+;* --- Use (the sweep)
+;* After saving, the routine forces `PlayerBulletState` active (`$39A7: LD (HL),$08`),
+;* seeds the aim X, and repeatedly calls the bird collision routine `L3800`
+;* while stepping the "above-player bullet" address down one row at a time — checking up to ~`$1D` rows for a hit.
+;*****************************************************************************
 L39C3:
                        CALL    L3800               ; Collision detection for birds
                        LD      HL,PlayerBulletState
@@ -7720,6 +8276,11 @@ L39C3:
                        AND     $1F                 
                        CP      $1D                 
                        JP      C,L39C3             ; 
+;*****************************************************************************
+;* --- Restore buffer
+;* When the sweep finishes (or the shield branch at `L39F0` completes),
+;* the saved bytes are copied back, returning the player bullet to exactly its previous state
+;*****************************************************************************
 L39DB:
                        LD      HL,M4BC0            ; 
                        LD      DE,PlayerBulletState
@@ -7730,7 +8291,9 @@ L39DB:
                        JP      CopyBbytesHLtoDE    ; 
 
                        .ORG $39F0
-;
+;*****************************************************************************
+;* Shield timer upkeep (entered on a hit):
+;*****************************************************************************
 L39F0:
                        LD      L,$A6               
                        LD      A,(HL)              
@@ -7741,7 +8304,17 @@ L39F0:
                        JP      L39DB               ; 
 
                        .ORG $3A00
-;
+;*****************************************************************************
+;* Frame gate + danger-window width:
+;* Returns D = half-width of the player "danger" window
+;* (wider when fewer birds remain -> more aggressive bombing).
+;* On alternate frames, pops L3930's return address so the
+;* whole bomb scan is skipped this frame (throttles bombing).
+;* The `POP HL` / `RET` trick at `$3A0E` is the key detail:
+;* when the gate "fails", it removes `L3930`'s own continuation (`$3942`)
+;* from the stack and returns one level higher, so on those frames `L3930`
+;* performs no bomb-drop scan at all.
+;*****************************************************************************
 L3A00:
                        LD      A,(BirdsLeft)       ; 
                        SUB     $0C                 
@@ -7901,8 +8474,11 @@ L3ABF:
 
                        .ORG $3AD0
 ;*****************************************************************************
-;* Background sound for the bird waves.
-;* Sound data from T3DE0.
+;* Background sound for the bird waves:
+;* Counts frames for the current tone;
+;* it's compared against a per-phase duration taken from `T3DE0`
+;* (indexed by the formation scroll phase `B4BD6`),
+;* and when the duration is reached it resets to 0, which advances `$438E` to the next note.
 ;*****************************************************************************
 L3AD0:
                        LD      HL,M438E            ; Bird-wave background-sound phase
@@ -7990,7 +8566,9 @@ L3B28:
                        RET                         
 
                        .ORG $3B33
-; Play the sound for 'Bonus live added'.
+;*****************************************************************************
+;* Play the sound for 'Bonus live added'.
+;*****************************************************************************
 L3B33:
                        LD      HL,M436A            ; 
                        LD      A,(HL)              
@@ -8004,21 +8582,26 @@ L3B33:
                        RET                         
 
                        .ORG $3B43
-; Update all synth sounds and melody triggers.
+;*****************************************************************************
+;* Update all synth sounds and melody triggers.
+;*****************************************************************************
 L3B43:
                        LD      HL,GameState        ; 
                        LD      A,(HL)              ;
-                       CP      $03                 ;
-                       CALL    Z,L23D6             ; if GameState is 'normal game play'
-                       CALL    L3B33               ; 
-                       CALL    L3B1B               ; 
+                       CP      $03                 ; is 'normal game play' ?
+                       CALL    Z,L23D6             ; if yes, do the background sound.
+                       CALL    L3B33               ; Sound for 'Bonus live added'.
+                       CALL    L3B1B               ; Ringtone sound for the player shield.
                        CALL    L3A1D               ; 
-                       CALL    L27BD               ; 
+                       CALL    L27BD               ; Sound for player bullet or ship explosion.
                        CALL    L3A82               ; 
-                       JP      L3A90               ; 
+                       JP      L3A90               ; Trigger melody
 
                        .ORG $3B60
-;? used at $3844
+; Per-character horizontal hit-mask table for bird collision used at $3844.
+; It's the lookup that lets the player's bullet hit a bird only
+; where the bird's graphic tile actually has solid pixels, rather than treating the whole 8-pixel character cell as solid.
+; Body mask table:
 T3B60:
                        .DB $1F, $7C, $F0, $01, $C0
                        .DB $07, $7F, $FC, $F0, $07, $C0, $1F, $FF, $FC, $03, $F0
@@ -8082,30 +8665,39 @@ T3C00:
                        .DB $00, $00, $0B, $00, $0C, $0C, $0E, $FF                         ;group of stars Object 3DB4
                        .DB $0D, $0E, $0D, $FF                                     ;group of stars Object 3DBC
 
-; ?
+; Scroll-phase -> active-object-window table for the bird wave.
+; Used by `L3930`, which runs every frame during the bird attack waves (it's called from the wave loop at `$3431` and `$3448`).
+; It defines a sliding, resizing window over the column of bird objects as a function of how far the wave has scrolled down.
+; - Phases 0–8: the window starts at the top object (`$4B70`) and grows `6 -> 7 -> 8` as more rows enter the play field.
+; - Phases 10–22: the start pointer slides down one object at a time (`$4B78 -> $4B80 -> ... -> $4BA8`),
+;                 while the count shrinks `7 -> 6 -> ... -> 1`, modeling the top rows scrolling out / fewer rows remaining active.
+; - Phases 24–30: it wraps back to the top (`$4B70`) and grows again `2 -> 3 -> 4 -> 5`.
 T3DC0:
-                       .DB $06, $70
-                       .DB $07, $70
-                       .DB $08, $70
-                       .DB $08, $70
-                       .DB $08, $70
-                       .DB $07, $78
-                       .DB $06, $80
-                       .DB $05, $88
-                       .DB $04, $90
-                       .DB $03, $98
-                       .DB $02, $A0
-                       .DB $01, $A8
-                       .DB $02, $70
-                       .DB $03, $70
-                       .DB $04, $70
-                       .DB $05, $70
+                       .DB $06, $70         ; phase  0 : count=6, ptr=$4B70
+                       .DB $07, $70         ; phase  2 : count=7, ptr=$4B70
+                       .DB $08, $70         ; phase  4 : count=8, ptr=$4B70
+                       .DB $08, $70         ; phase  6 : count=8, ptr=$4B70
+                       .DB $08, $70         ; phase  8 : count=8, ptr=$4B70
+                       .DB $07, $78         ; phase 10 : count=7, ptr=$4B78
+                       .DB $06, $80         ; phase 12 : count=6, ptr=$4B80
+                       .DB $05, $88         ; phase 14 : count=5, ptr=$4B88
+                       .DB $04, $90         ; phase 16 : count=4, ptr=$4B90
+                       .DB $03, $98         ; phase 18 : count=3, ptr=$4B98
+                       .DB $02, $A0         ; phase 20 : count=2, ptr=$4BA0
+                       .DB $01, $A8         ; phase 22 : count=1, ptr=$4BA8
+                       .DB $02, $70         ; phase 24 : count=2, ptr=$4B70
+                       .DB $03, $70         ; phase 26 : count=3, ptr=$4B70
+                       .DB $04, $70         ; phase 28 : count=4, ptr=$4B70
+                       .DB $05, $70         ; phase 30 : count=5, ptr=$4B70
 
 ; Background sound data for the bird waves.
 ; Slowly ascending and descending tones.
 T3DE0:
                        .DB $40, $40, $40, $40, $40, $40, $40, $34, $2C, $26, $20, $1C, $18, $14, $12, $0F
                        .DB $0D, $0B, $09, $08, $07, $06, $05, $04, $03, $02, $02, $02, $02, $02, $02, $02
+
+; Column bit `C` look up table for `PlayerBulletX & 7`
+T3E00:
                        .DB $01, $02, $04, $08, $10, $20, $40, $80
 
 ;address table for bird character block shapes (grouped by animation pattern)
@@ -8194,44 +8786,49 @@ T3E08:
                        .DB $3C, $D8 ;#26                              6x2
                        .DB $3C, $E4 ;#27                              6x2
 
-;for birds
-;copy to $436E,(+10) $436D
+; Bird-wave launch/spawn configuration table:
+; It's read by `L3560`, the routine that sets up a new diving bird group.
+; Byte 0:   -> $436E Bird count / formation-size for this dive (values `4`–`8`).
+;           It's later used as a target/limit when the bird objects are populated and stepped.
+; Byte 1:   (+ random, grid aligned) -> $436D Horizontal start position of the bird group.
+;           (base values `$10`–`$60`). As each bird in the group is launched, the code reads $436D,
+;           uses it as the X position, and advances it by 8 for the next bird.
 T3E80:
                        .DB $05, $40
                        .DB $05, $20
                        .DB $04, $30
                        .DB $04, $10
-;not used?
+; 
                        .DB $06, $48
                        .DB $06, $28
                        .DB $05, $38
                        .DB $05, $18
-;not used?
+; 
                        .DB $07, $50
                        .DB $07, $30
                        .DB $06, $40
                        .DB $06, $20
-;not used?
+; 
                        .DB $08, $58
                        .DB $08, $38
                        .DB $07, $48
                        .DB $07, $28
-;copy to $436E,(+10) $436D
+; 
                        .DB $06, $10
                        .DB $05, $20
                        .DB $05, $30
                        .DB $05, $40
-;not used?
+; 
                        .DB $08, $18
                        .DB $07, $28
                        .DB $07, $38
                        .DB $06, $48
-;not used?
+; 
                        .DB $08, $20
                        .DB $07, $30
                        .DB $07, $40
                        .DB $07, $50
-;not used?
+; 
                        .DB $08, $30
                        .DB $08, $40
                        .DB $08, $50
@@ -8244,13 +8841,32 @@ T3EC0:
                        .DB $FF
                        .DB $48, $40, $40, $40, $38, $30, $28, $38, $30, $28, $20, $30, $20, $30, $28
 
-;big birds related. offsets for movement ?
+; Vertical scrolling/descent motion of the birds attack formation.
+; Consumed by the bird vertical-movement routine `L2600` and its helper `L2668`.
+; Dithered vertical-scroll increment table:
+; Used to generate fractional (sub-pixel) scroll speeds for the formation's descent. In `L2600`.
+; - The index is `row + column`, where the *row* (`0/4/8/12`) is the animation-frame parity from `Counter9A+1`,
+;   and the column (`0–3`) is the descent sub-phase `B4BD5 & 3`.
+; - The value (only ever `0` or `1`) is added to the coarse speed `(B4BD5>>2)&7`
+;   to form the per-frame scroll delta, which is then subtracted from `CounterB9` and written to the hardware scroll register `$5800`.
+; This lets the game realise non-integer average descent rates (e.g. an effective 3 1/2 px/frame) by alternating between `n` and `n+1` across frames/sub-phases,
+; giving smooth variable-speed scrolling. (The alternate path `L2650` reuses the same table but adds to `CounterB9` for the return/upward motion.)
 T3ED0:
                        .DB $01, $01, $01, $01
                        .DB $00, $00, $01, $01
                        .DB $00, $01, $01, $01
                        .DB $00, $00, $00, $01
 
+; Descent-speed clamp curve table:
+; This 32-byte block is indexed by `B4BD6` (a 0–31 value) and acts as a per-position speed limit on the computed descent step in `L2668`.
+; `B4BD6` is computed in `L26D0`/`$26EE` as `(B4BD2 + D + E) & $1F` after scanning the live bird objects (`M4BA8…`).
+; So it encodes the formation's current vertical scroll phase combined with how many birds remain and where they are.
+; The table value caps `B` (a step candidate derived from `M436E`, the wave timer `Counter9A`, and `AliensLeft`),
+; and the clamped result becomes `B4BD5` — which is exactly the value Part 1 uses to pick the scroll increment.
+; The values trace a speed envelope across the descent: `5->4->3->2->1->0`, a flat `0` hold, 
+; then a gradual rise `1->2->...->8` and back to `6`.
+; In effect it makes the swooping formation decelerate to a stop, pause, then accelerate again as it moves through the screen.
+T3EE0:
                        .DB $05, $04, $03, $02, $01, $00
                        .DB $00, $00, $00, $00, $01, $01
                        .DB $01, $01, $02, $02
@@ -8259,8 +8875,16 @@ T3ED0:
                        .DB $05, $05, $06, $06
                        .DB $07, $08, $07, $06
 
-; Register contents and address for stack manipulation
+; A stack built coroutine dispatcher:
+; Register contents and address for stack manipulation 
 ; used at level 3,4,8,9.
+; T3F00 is a 16 * 8 byte per state descriptor table for the level 3/4/8/9 birds.
+; Each entry holds two register constant words plus two routine addresses
+; (a movement handler and a transition handler).
+; `L35B0` dispatches it with a stack trick: it pushes the bird pointer, the two constants,
+; and both addresses, then `RET`s — running the movement routine first,
+; which `RET`s into the transition routine, which pops the constants and returns to the caller.
+; It's an indirect double call built entirely on the stack.
 T3F00:
                        .MSFIRST
 ; for bird index to character block shape (0)
@@ -8334,11 +8958,11 @@ T3F00:
 ;..........................:index to first character block shape
 ;...............................:MSB of initial screen address
 ;....................................:LSB of the initial screen address
-;.........................................:?
-;..............................................:?
-;...................................................:? grid coordinate x
-;........................................................:?
-;.............................................................:? grid coordinate y
+;.........................................:animation phase / current shape frame
+;..............................................:movement-step countdown timer
+;...................................................: grid coordinate x
+;........................................................:horizontal movement step (velocity)
+;.............................................................: grid coordinate y
 T3F80:
                        .DB $01, $48, $EE, $00, $10, $B0, $10, $20       ; 0
                        .DB $01, $49, $2C, $00, $10, $A0, $00, $B0       ; 1
