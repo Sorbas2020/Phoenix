@@ -132,6 +132,8 @@ AnimationCounter       .EQU $43A7       ;For mothership's antenna and the alien 
 M43A8                  .EQU $43A8       ;Temporary storage (MSB of pointer to table $1860)
 M43A9                  .EQU $43A9       ;Temporary storage (LSB of pointer to table $1860)
 M43AA                  .EQU $43AA       ;Mothership-wave frame counter (times antenna/pilot animation and star scroll)
+
+; For Background graphic's (stars, planets, galaxies) and scroll control
 M43AB                  .EQU $43AB       ;Counter for planet trigger
 M43AC                  .EQU $43AC       ;Planet vertical spacing increment (added to trigger `$43AB`)
 M43AD                  .EQU $43AD       ;Planet X index -> `T1E60` (screen-RAM LSB), incremented per planet
@@ -145,6 +147,7 @@ CounterB4              .EQU $43B4       ;8 bit counter (stars scrolling down, al
 M43B5                  .EQU $43B5       ;Reserved/unused byte always `$FF`
 M43B6                  .EQU $43B6       ;End-of-wave countdown timer that advances the game to the next level/round
 
+;For general purposes
 LevelAndRound          .EQU $43B8       ;Bit0 - 3: game level, bit4 - 7: game round
 CounterB9              .EQU $43B9       ;8 bit backwards counter
 AliensLeft             .EQU $43BA       ;Number of aliens left in wave (16 at new)
@@ -542,7 +545,7 @@ L002D:
                        LD      (HL),A              ;
                        CALL    UpdateSoundControlRAM
                        NOP                         ;
-                       CALL    CoinChecking        ;
+                       CALL    CoinChecking        ; Converts raw `CoinCount` into playable credits, applying the coinage DIP on `DSW0`
                        AND     A                   ; updates the zero flag
                        JP      Z,L0046             ; No credits ... continue splash
                        CALL    PromptForStartGame  ;
@@ -706,7 +709,7 @@ SplashAndDemo:
                        JP      Z,PrintCopyright    ; do if Counter98 is >= 01 B0
                        LD      C,$B8               ;
                        CALL    CompareBCtoMem      ;
-                       JP      Z,InitGlobalLevelData            ; do if Counter98 is >= 01 B8
+                       JP      Z,InitBackgroundData            ; do if Counter98 is >= 01 B8
                        LD      C,$C0               ; for a short break
                        LD      DE,$02DF            ;
                        CALL    SubtractIfEnough    ;
@@ -1021,7 +1024,7 @@ PromptForStartGame:
                        LD      C,$02               ; print two lines: 'PUSH ONLY...1PLAYER BUTTON'
                        CALL    PrintTextLines      ;
                        LD      C,$02               ;
-                       CALL    CoinChecking        ;
+                       CALL    CoinChecking        ; Converts raw `CoinCount` into playable credits, applying the coinage DIP on `DSW0`
                        CP      $02                 ; 2 player mode possible if credit > 1
                        JP      C,L02A7             ;
                        LD      HL,T1BA0            ;
@@ -1522,7 +1525,7 @@ L0515:
                        CALL    SetBitsVideoRegister; set color palette according to LevelAndRound
                        LD      HL,GameState        ; Next interval game state ...
                        LD      (HL),$03            ; ... is 3 (normal game play)
-                       CALL    InitGlobalLevelData ;
+                       CALL    InitBackgroundData ;
                        CALL    InitPlayerDataStructure
                        CALL    L09A0               ; get screen ram adress for player ship position
 L0526:
@@ -1572,17 +1575,17 @@ T0560:
                        .DB $00, $58, $00, $20       ; AlienBullet4State, AlienBullet4Shape, AlienBullet4X, AlienBullet4Y
 
 ;*****************************************************************************
-;* Init of global level data, dependent on level and round.
+;* Init background graphic's data, dependent on level and round.
 ;*****************************************************************************
-InitGlobalLevelData:
+InitBackgroundData:
                        LD      HL,T0598            ;
                        LD      A,(LevelAndRound)   ;
-                       AND     $0F                 ;
+                       AND     $0F                 ; 0000_1111
                        ADD     A,L                 ;
                        LD      L,A                 ;
                        LD      L,(HL)              ;
-                       LD      H,$05               ;
-                       LD      DE,M43AB            ;
+                       LD      H,T05A8 >> 8        ;
+                       LD      DE,M43AB            ; Start of background graphic's data
                        LD      B,$0C               ; number of bytes to copy
                        CALL    CopyBbytesHLtoDE    ;
                        RET                         ;
@@ -1591,6 +1594,11 @@ InitGlobalLevelData:
 ; Table for the global level data, over game levels.
 ; Bit0 - bit3 of $43B8 is the table index.
 ; Data will be fetched two times. Once before and once after the 'spiral fill' animation.
+; The double call is really a side effect of always going through
+; `GameState = 2` on every level entry, including “levels” that are only the spiral transition.
+; So the first fetch is needless.
+; They did not special-case “skip global init until after spiral.”
+; $05A0 should be $CC but it was never fixed and has no side effect.
 T0598:
                        .DB T05A8 & $FF, T05A8 & $FF    ;init values for 1st alien wave (pointer to $05A8, $05A8)
                        .DB T05C0 & $FF, T05C0 & $FF    ;init values for 2st alien wave (pointer to $05C0, $05C0)
@@ -1600,17 +1608,18 @@ T0598:
                        .DB T05B4 & $FF, T05B4 & $FF    ;init values for mothership wave (pointer to $05B4, $05B4)
                        .DB T05A8 & $FF, T05A8 & $FF    ;not used? pointer to $05A8, $05A8
                        .DB T05A8 & $FF, T05A8 & $FF    ;not used? pointer to $05A8, $05A8
-;
+
+; Data for Background graphic's (stars, planets, galaxies) and scroll control
 ; e.g.:counter values, timer values, T1C00, T1D00, T1F00, ..
 ; Data copied to $43AB-$43B6
 T05A8:
-                       .DB $80, $7F, $00, $00, $40, $3F, $00, T1C00 >> 8, T1C00 & $FF, $FF, $FF, $FF
+                       .DB $80, $7F, $00, $00, $40, $3F, $00, T1C00 >> 8, T1C00 & $FF, $FF, $FF, $FF    ; alien waves
 T05B4:
-                       .DB $60, $5F, $01, $02, $30, $2F, $00, T1C00 >> 8, T1C00 & $FF, $C0, $FF, $FF
+                       .DB $60, $5F, $01, $02, $30, $2F, $00, T1C00 >> 8, T1C00 & $FF, $C0, $FF, $FF    ; mothership
 T05C0:
-                       .DB $80, $7F, $03, $04, $40, $3F, $00, T1F00 >> 8, T1F00 & $FF, $A0, $FF, $FF
+                       .DB $80, $7F, $03, $04, $40, $3F, $00, T1F00 >> 8, T1F00 & $FF, $A0, $FF, $FF    ; alien wave 2
 T05CC:
-                       .DB $60, $60, $05, $06, $50, $30, $00, T1D00 >> 8, T1D00 & $FF, $48, $FF, $FF
+                       .DB $60, $60, $05, $06, $50, $30, $00, T1D00 >> 8, T1D00 & $FF, $48, $FF, $FF    ; mothership
 
 ;*****************************************************************************
 ;* Clears B memories starting at HL.
@@ -3104,108 +3113,113 @@ L0D5E:
                        .ORG $0D70
 ;*****************************************************************************
 ;* Alien animation update.
+;* 1. Uses the movement-list opcode → `T16A0` (3-byte anim record)
+;* 2. From that, picks a base into `T1600` and a small X/Y sub-index (fine scroll / facing)
+;* 3. Reads one byte from `T1600`...`T1690`
+;* 4. Stores it in control state B = LSB for `$14xx`
 ;*****************************************************************************
+AlienAnimationUpdate:
 L0D70:
-                       LD      BC,M4B70            ; 
-                       LD      HL,M4B50            ; 
+                       LD      BC,M4B70            ; Alien control state A
+                       LD      HL,M4B50            ; Alien movement pattern table
 L0D76:
                        CALL    L0D86               ; 
-                       LD      A,C                 
-                       ADD     $04                 
-                       LD      C,A                 
-                       LD      A,$B0               
-                       CP      C                   
-                       JP      NZ,L0D76            ; 
-                       RET                         
+                       LD      A,C                 ; 
+                       ADD     $04                 ; 
+                       LD      C,A                 ; 
+                       LD      A,$B0               ; 
+                       CP      C                   ; 
+                       JP      NZ,L0D76            ; loop for 16 aliens
+                       RET                         ; 
 
                        .ORG $0D86
 L0D86:
-                       LD      D,(HL)              
-                       INC     HL                  
-                       LD      E,(HL)              
-                       INC     HL                  
-                       LD      A,(BC)              
-                       AND     $08                 
-                       RET     Z                   
-                       EX      DE,HL               
-                       LD      A,(HL)              ; Closed loops pattern table for aliens
+                       LD      D,(HL)              ; get MSB of pointer for alien movement pattern
+                       INC     HL                  ; 
+                       LD      E,(HL)              ; get LSB of pointer for alien movement pattern
+                       INC     HL                  ; 
+                       LD      A,(BC)              ; get alien control state A
+                       AND     $08                 ; 0000_1000
+                       RET     Z                   ; if bit3 of alien control state A, not set
+                       EX      DE,HL               ; 
+                       LD      A,(HL)              ; get pointer to movement list (T1000)
                        AND     A                   ; updates the zero flag
-                       CALL    Z,L0DDE             ; 
-                       LD      L,A                 
-                       RLCA                        ; Multiply by 2
-                       ADD     A,L                 
-                       ADD     $A0                 
-                       LD      L,A                 
-                       LD      H,T1600 >> 8        
-                       LD      A,(BC)              
-                       AND     $F8                 
-                       OR      (HL)                
-                       LD      (BC),A              
-                       INC     BC                  
-                       INC     BC                  
-                       INC     BC                  
-                       INC     HL                  
-                       LD      A,(HL)              
-                       INC     HL                  
-                       RRCA                        
-                       JP      C,L0DBB             ; 
-                       RRCA                        
-                       JP      C,L0DCC             ; 
+                       CALL    Z,L0DDE             ; if end of movement list reached
+                       LD      L,A                 ; get pointer to movement list
+                       RLCA                        ; multiply by ..
+                       ADD     A,L                 ; .. 3, to get a 3 byte offset at T16A0
+                       ADD     T16A0 & $FF         ; LSB of T16A0
+                       LD      L,A                 ; 
+                       LD      H,T16A0 >> 8        ; MSB of T16A0
+                       LD      A,(BC)              ; get alien control state A
+                       AND     $F8                 ; 1111_1000
+                       OR      (HL)                ; 1st byte of alien animation table
+                       LD      (BC),A              ; set alien control state A
+                       INC     BC                  ; 
+                       INC     BC                  ; 
+                       INC     BC                  ; alien screen coordinate Y
+                       INC     HL                  ; 
+                       LD      A,(HL)              ; get 2nd byte of alien animation table
+                       INC     HL                  ; 3rd byte of alien animation table
+                       RRCA                        ; divide by 2
+                       JP      C,L0DBB             ; if 2nd byte is: $01
+                       RRCA                        ; divide by 2
+                       JP      C,L0DCC             ; if 2nd byte is: $02
 ; 2nd byte of alien animation table is: $04
-                       LD      A,(BC)              
-                       RRCA                        
-                       AND     $03                 
-                       ADD     A,(HL)              
-                       DEC     BC                  
+                       LD      A,(BC)              ; get alien screen coordinate Y
+                       RRCA                        ; divide by 2
+                       AND     $03                 ; 0000_0011
+                       ADD     A,(HL)              ; add with 3rd byte of alien animation table
+                       DEC     BC                  ; alien screen coordinate X
                        JP      L0DD2               ; 
 
                        .ORG $0DBB
 ; 2nd byte of alien animation table is: $01
 L0DBB:
-                       LD      A,(BC)              
-                       RRCA                        
-                       AND     $03                 
-                       ADD     A,(HL)              
-                       LD      H,A                 
-                       DEC     BC                  
-                       LD      A,(BC)              
-                       AND     $04                 
-                       ADD     A,H                 
+                       LD      A,(BC)              ; get alien screen coordinate Y
+                       RRCA                        ; divide by 2
+                       AND     $03                 ; 0000_0011
+                       ADD     A,(HL)              ; add with 3rd byte of alien animation table
+                       LD      H,A                 ; save
+                       DEC     BC                  ; 
+                       LD      A,(BC)              ; get alien screen coordinate X
+                       AND     $04                 ; 0000_0100
+                       ADD     A,H                 ; add with 3rd byte of alien animation table
                        JP      L0DD2               ; 
 
                        .ORG $0DCC
 ; 2nd byte of alien animation table is: $02
 L0DCC:
-                       DEC     BC                  
-                       LD      A,(BC)              
-                       RRCA                        
-                       AND     $03                 
-                       ADD     A,(HL)              
+                       DEC     BC                  ; 
+                       LD      A,(BC)              ; get alien screen coordinate X
+                       RRCA                        ; divide by 2
+                       AND     $03                 ; 0000_0011
+                       ADD     A,(HL)              ; add with 3rd byte of alien animation table
 L0DD2:
-                       LD      L,A                 
-                       LD      H,T1600 >> 8       ; get data from T1600
-                       LD      A,(HL)              
-                       DEC     BC                  
-                       LD      (BC),A              
-                       DEC     BC                  
-                       EX      DE,HL               
-                       RET                         
+                       LD      L,A                 ; LSB for T1600
+                       LD      H,T1600 >> 8        ; MSB for T1600
+                       LD      A,(HL)              ; get data from T1600
+                       DEC     BC                  ; 
+                       LD      (BC),A              ; set alien control state B (LSB for T14xx)
+                       DEC     BC                  ; alien control state A
+                       EX      DE,HL               ; 
+                       RET                         ; 
 
                        .ORG $0DDE
 ; End of movement list reached
 L0DDE:
-                       DEC     DE                  
-                       DEC     DE                  
-                       LD      A,(M4394)           ; 
-                       LD      (DE),A              
-                       LD      H,A                 
-                       INC     DE                  
-                       LD      A,(M4395)           ; 
-                       LD      (DE),A              
-                       LD      L,A                 
-                       INC     DE                  
-                       LD      A,(HL)              
-                       RET                         
+                       DEC     DE                  ; 
+                       DEC     DE                  ; 
+                       LD      A,(M4394)           ; get start value list pointer for alien movement MSB
+                       LD      (DE),A              ; save alien movement pattern table MSB
+                       LD      H,A                 ; 
+                       INC     DE                  ; 
+                       LD      A,(M4395)           ; get start value list pointer for alien movement LSB
+                       LD      (DE),A              ; save alien movement pattern table LSB
+                       LD      L,A                 ; 
+                       INC     DE                  ; 
+                       LD      A,(HL)              ; get value from pointer table to alien movement list
+                       RET                         ; 
 
                        .ORG $0DF0
 ;*****************************************************************************
@@ -3817,87 +3831,160 @@ T13D0:
                        .DB $03, $1F, $05, $05, $08, $07, $07, $07
                        .DB $08, $07, $07, $07, $08, $08, $05, $05
                        .DB $05, $05, $05, $00, $FF, $FF, $FF, $FF
+
 ; Player ship character block shapes table
 ; used for fine bit shifting of the player
 T1400:
                        .DB $30, $40, $31, $41     ;frame#1
+T1404:
                        .DB $32, $42, $33, $43     ;frame#2
+T1408:
                        .DB $34, $44, $35, $45     ;frame#3
+T140C:
                        .DB $36, $46, $37, $47     ;frame#4
+T1410:
                        .DB $38, $48, $39, $49     ;frame#5
+T1414:
                        .DB $3A, $4A, $3B, $4B     ;frame#6
+T1418:
                        .DB $3C, $4C, $3D, $4D     ;frame#7
+T141C:
                        .DB $3E, $4E, $3F, $4F     ;frame#8
 
-; Alien character block shapes table ($00=SPACE)
+; Alien tile-strip catalog table:
+; A packed list of shape strips.
+; Raw foreground character codes that make up each alien (and related) shape.
+; It is not indexed by shape number directly — drawing uses an LSB into page `$14`, usually produced by `T1600`.
+; Indexing chain:
+; movement opcode
+;    -> T16A0 (draw size + how to use X/Y + base into T1600)
+;        -> T1600[+subindex]  = LSB
+;            -> alien control state B
+;                -> HL = $14 | LSB
+;                    -> T1420 tile bytes drawn to screen
+; Duplicates track the 4-phase X/Y fine-scroll index — two phases,
+; same picture -> same tile pair stored (or same pointer repeated) twice.
 T1420:
                        .DB $60, $61           ;alien shape #1
+T1422:
                        .DB $62, $63           ;#2
+T1424:
                        .DB $64, $65           ;#3
+T1426:
                        .DB $66, $67           ;#4
+T1428:
                        .DB $69, $00           ;#6
+T142A:
                        .DB $69, $00           ;#6
+T142C:
                        .DB $7A, $7B           ;#28
+T142E:
                        .DB $7A, $7B           ;#28
+T1430:
                        .DB $6B, $00           ;#8
+T1432:
                        .DB $6B, $00           ;#8
+T1434:
                        .DB $8C, $8D           ;#29
+T1436:
                        .DB $8C, $8D           ;#29
+T1438:
                        .DB $68, $00           ;#5
+T143A:
                        .DB $68, $00           ;#5
+T143C:
                        .DB $8A, $9A           ;#30
+T143E:
                        .DB $8A, $9A           ;#30
+T1440:
                        .DB $6A, $00           ;#7
+T1442:
                        .DB $6A, $00           ;#7
+T1444:
                        .DB $8B, $9B           ;#31
+T1446:
                        .DB $8B, $9B           ;#31
+T1448:
                        .DB $68, $00           ;#5
+T144A:
                        .DB $6B, $00           ;#8
+T144C:
                        .DB $6A, $00           ;#7
+T144E:
                        .DB $69, $00           ;#6
+T1450:
                        .DB $76, $77           ;#18
+T1452:
                        .DB $74, $75           ;#19
+T1454:
                        .DB $72, $73           ;#16
+T1456:
                        .DB $70, $71           ;#17
+T1458:
                        .DB $68, $00           ;#5
+T145A:
                        .DB $86, $96           ;#22
+T145C:
                        .DB $69, $00           ;#6
+T145E:
                        .DB $87, $97           ;#21
+T1460:
                        .DB $6A, $00           ;#7
+T1462:
                        .DB $88, $98           ;#20
+T1464:
                        .DB $6B, $00           ;#8
+T1466:
                        .DB $89, $99           ;#23
-                       .DB $68, $00           ;#5
-                       .DB $00, $00
+T1468:
+                       .DB $68, $00, $00, $00 ;#5
+T146C:
                        .DB $A2, $B2, $A3, $B3 ;#26
-                       .DB $69, $00           ;#6
-                       .DB $00, $00
+T1470:
+                       .DB $69, $00, $00, $00 ;#6
+T1474:
                        .DB $A4, $B4, $A5, $B5 ;#25
-                       .DB $6A, $00           ;#7
-                       .DB $00, $00
+T1478:
+                       .DB $6A, $00, $00, $00 ;#7
+T147C:
                        .DB $A6, $B6, $A7, $B7 ;#24
-                       .DB $6B, $00           ;#8
-                       .DB $00, $00
+T1480:
+                       .DB $6B, $00, $00, $00 ;#8
+T1484:
                        .DB $A8, $B8, $A9, $B9 ;#27
-                       .DB $FF, $FF, $FF, $FF
-                       .DB $8A, $9A           ;#30
-                       .DB $00, $00
-                       .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-                       .DB $8B, $9B           ;#31
-                       .DB $00, $00
-                       .DB $FF, $FF, $FF, $FF
+
+                       .DB $FF, $FF, $FF, $FF ; unused
+                       .DB $8A, $9A, $00, $00 ; unused
+                       .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF   ; unused
+
+T14A0:
+                       .DB $8B, $9B, $00, $00 ;#31
+
+                       .DB $FF, $FF, $FF, $FF ; unused
+
+T14A8:
                        .DB $8E, $9E, $8F, $9F ;#14
+T14AC:
                        .DB $A0, $B0, $A1, $B1 ;#15
-                       .DB $00, $00, $00, $00
-                       .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-                       .DB $9C, $00           ;#32
-                       .DB $00, $00
+
+                       .DB $00, $00, $00, $00 ; unused
+                       .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF   ; unused
+
+T14C0:
+                       .DB $9C, $00, $00, $00 ;#32
+T14C4:
                        .DB $84, $94, $85, $95 ;#36
+T14C8:
                        .DB $82, $92, $83, $93 ;#35
+T14CC:
                        .DB $80, $90, $81, $91 ;#34
+T14D0:
                        .DB $9D, $00, $00, $00 ;#33
+T14D4:
                        .DB $AE, $BE, $AF, $BF ;#39
+T14D8:
                        .DB $AC, $BC, $AD, $00 ;#38
+T14DC:
                        .DB $AA, $BA, $AB, $BB ;#37
 
 ;*****************************************************************************
@@ -4169,89 +4256,165 @@ T15E0:
 
 ; Pointer table for character block shapes table (T14xx):
 T1600:
-                       .DB $10, $14, $18, $1C ; to player ship frame #5, #6, #7, #8
-                       .DB $00, $04, $08, $0C ; to player ship frame #1, #2, #3, #4
-                       .DB $20, $22, $24, $26 ; to alien shape #1, #2, #3, #4
-                       .DB $28, $2A, $2C, $2E ; to alien shape #6, #6, #28, #28
-                       .DB $30, $32, $34, $36 ; to alien shape #8, #8, #29, #29
-                       .DB $38, $3A, $3C, $3E ; to alien shape #5, #5, #30, #30
-                       .DB $40, $42, $44, $46 ; to alien shape #7, #7, #31, #31
-                       .DB $5C, $5C, $5E, $5E ; to alien shape #6, #6, #21, #21
+                       .DB T1410 & $FF, T1414 & $FF, T1418 & $FF, T141C & $FF ; to player ship frame #5, #6, #7, #8
+T1604:
+                       .DB T1400 & $FF, T1404 & $FF, T1408 & $FF, T140C & $FF ; to player ship frame #1, #2, #3, #4
+T1608:
+                       .DB T1420 & $FF, T1422 & $FF, T1424 & $FF, T1426 & $FF ; to alien shape #1, #2, #3, #4
+T160C:
+                       .DB T1428 & $FF, T142A & $FF, T142C & $FF, T142E & $FF ; to alien shape #6, #6, #28, #28
+T1610:
+                       .DB T1430 & $FF, T1432 & $FF, T1434 & $FF, T1436 & $FF ; to alien shape #8, #8, #29, #29
+T1614:
+                       .DB T1438 & $FF, T143A & $FF, T143C & $FF, T143E & $FF ; to alien shape #5, #5, #30, #30
+T1618:
+                       .DB T1440 & $FF, T1442 & $FF, T1444 & $FF, T1446 & $FF ; to alien shape #7, #7, #31, #31
+T161C:
+                       .DB T145C & $FF, T145C & $FF, T145E & $FF, T145E & $FF ; to alien shape #6, #6, #21, #21
 
 ; 8 player bullets for the fine bit shifting
 ; Foreground tiles (no pointer).
 T1620:
                        .DB $50, $51, $52, $53, $54, $55, $56, $57
-;
+; not used
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
 
 ; Pointer table for character block shapes table (T14xx):
-                       .DB $48, $48, $50, $50, $4A, $4A, $52, $52, $4C, $4C, $54, $54, $4E, $4E, $56, $56
-                       .DB $48, $48, $56, $56, $4E, $4E, $54, $54, $4C, $4C, $52, $52, $4A, $4A, $50, $50
-                       .DB $68, $68, $6C, $6C, $70, $70, $74, $74, $78, $78, $7C, $7C, $80, $80, $84, $84
-                       .DB $68, $68, $84, $84, $80, $80, $7C, $7C, $78, $78, $74, $74, $70, $70, $6C, $6C
-                       .DB $58, $58, $5A, $5A, $5C, $5C, $5E, $5E, $60, $60, $62, $62, $64, $64, $66, $66
-                       .DB $78
-                       .DB $FF
-                       .DB $A0
-                       .DB $FF, $FF
-                       .DB $A8
-                       .DB $FF
-                       .DB $AC, $C0
-                       .DB $FF
-                       .DB $C8
-                       .DB $FF, $FF
-                       .DB $C4
-                       .DB $FF
-                       .DB $CC, $D0
-                       .DB $FF
-                       .DB $D8
-                       .DB $FF, $FF
-                       .DB $D4
-                       .DB $FF
-                       .DB $DC
-                       .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-;?
-                       .DB $01, $02, $08
-                       .DB $01, $02, $08
-                       .DB $01, $02, $0C
-                       .DB $01, $02, $10
-                       .DB $03, $04, $14
-                       .DB $03, $04, $18
-                       .DB $04, $01, $88
-                       .DB $04, $01, $90
-                       .DB $04, $01, $80
-                       .DB $04, $01, $80
-                       .DB $03, $04, $70
-                       .DB $03, $04, $74
-                       .DB $03, $04, $78
-                       .DB $03, $04, $7C
-                       .DB $FF, $FF, $FF
-;?
-                       .DB $01, $02, $30
-                       .DB $01, $02, $34
-                       .DB $01, $02, $38
-                       .DB $01, $02, $3C
-                       .DB $01, $02, $40
-                       .DB $01, $02, $44
-                       .DB $01, $02, $48
-                       .DB $01, $02, $4C
-                       .DB $04, $04, $50
-                       .DB $04, $04, $54
-                       .DB $04, $04, $58
-                       .DB $04, $04, $5C
-                       .DB $04, $04, $60
-                       .DB $04, $04, $64
-                       .DB $04, $04, $68
-                       .DB $04, $04, $6C
+T1630:
+                       .DB T1448 & $FF, T1448 & $FF, T1450 & $FF, T1450 & $FF             ; to alien shape #5, #5, #18, #18
+T1634:
+                       .DB T144A & $FF, T144A & $FF, T1452 & $FF, T1452 & $FF             ; to alien shape #8, #8, #19, #19
+T1638:
+                       .DB T144C & $FF, T144C & $FF, T1454 & $FF, T1454 & $FF             ; to alien shape #7, #7, #16, #16
+T163C:
+                       .DB T144E & $FF, T144E & $FF, T1456 & $FF, T1456 & $FF             ; to alien shape #6, #6, #17, #17
+T1640:
+                       .DB T1448 & $FF, T1448 & $FF, T1456 & $FF, T1456 & $FF             ; to alien shape #5, #5, #17, #17
+T1644:
+                       .DB T144E & $FF, T144E & $FF, T1454 & $FF, T1454 & $FF             ; to alien shape #6, #6, #16, #16
+T1648:
+                       .DB T144C & $FF, T144C & $FF, T1452 & $FF, T1452 & $FF             ; to alien shape #7, #7, #19, #19
+T164C:
+                       .DB T144A & $FF, T144A & $FF, T1450 & $FF, T1450 & $FF             ; to alien shape #8, #8, #18, #18
+T1650:
+                       .DB T1468 & $FF, T1468 & $FF, T146C & $FF, T146C & $FF             ; to alien shape #5, #5, #26, #26
+T1654:
+                       .DB T1470 & $FF, T1470 & $FF, T1474 & $FF, T1474 & $FF             ; to alien shape #6, #6, #25, #25
+T1658:
+                       .DB T1478 & $FF, T1478 & $FF, T147C & $FF, T147C & $FF             ; to alien shape #7, #7, #24, #24
+T165C:
+                       .DB T1480 & $FF, T1480 & $FF, T1484 & $FF, T1484 & $FF             ; to alien shape #8, #8, #27, #27
+T1660:
+                       .DB T1468 & $FF, T1468 & $FF, T1484 & $FF, T1484 & $FF             ; to alien shape #5, #5, #27, #27
+T1664:
+                       .DB T1480 & $FF, T1480 & $FF, T147C & $FF, T147C & $FF             ; to alien shape #8, #8, #24, #24
+T1668:
+                       .DB T1478 & $FF, T1478 & $FF, T1474 & $FF, T1474 & $FF             ; to alien shape #7, #7, #25, #25
+T166C:
+                       .DB T1470 & $FF, T1470 & $FF, T146C & $FF, T146C & $FF             ; to alien shape #6, #6, #26, #26
+T1670:
+                       .DB T1458 & $FF, T1458 & $FF, T145A & $FF, T145A & $FF             ; to alien shape #5, #5, #22, #22
+T1674:
+                       .DB T145C & $FF, T145C & $FF, T145E & $FF, T145E & $FF             ; to alien shape #6, #6, #21, #21
+T1678:
+                       .DB T1460 & $FF, T1460 & $FF, T1462 & $FF, T1462 & $FF             ; to alien shape #7, #7, #20, #20
+T167C:
+                       .DB T1464 & $FF, T1464 & $FF, T1466 & $FF, T1466 & $FF             ; to alien shape #8, #8, #23, #23
+T1680:
+                       .DB T1478 & $FF, $FF, T14A0 & $FF, $FF, $FF, T14A8 & $FF, $FF, T14AC & $FF ; to alien shape #7, #31, #14, #15
+T1688:
+                       .DB T14C0 & $FF, $FF, T14C8 & $FF, $FF, $FF, T14C4 & $FF, $FF, T14CC & $FF ; to alien shape #32, #35, #36, #34
+T1690:
+                       .DB T14D0 & $FF, $FF, T14D8 & $FF, $FF, $FF, T14D4 & $FF, $FF, T14DC & $FF ; to alien shape #33, #38, #39, #37
+; not used
+                       .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
+
+; Alien animation table.
+; 1st byte: bit0-3 of alien control state A:
+;           xxxx_x000...draw 1x1 screen objects
+;           xxxx_x001...draw 2x1 screen objects
+;           xxxx_x011...draw 1x2 screen objects
+;           xxxx_x100...draw 2x2 screen objects
+; 2nd byte: type of offset calculation:
+;           xxxx_xxx1...use X and Y coordinate
+;           xxxx_xx10...use X coordinate
+;           xxxx_x100...use Y coordinate
+; 3rd byte: LSB base address for table T1600
+T16A0:
+                       .DB $FF, $FF, $FF                    ; Dummy
+                       .DB $01, $02, T1608 & $FF            ; 2x1 screen object, X , T1608
+                       .DB $01, $02, T1608 & $FF            ; 2x1 screen object, X , T1608
+                       .DB $01, $02, T160C & $FF            ; 2x1 screen object, X , T160C
+                       .DB $01, $02, T1610 & $FF            ; 2x1 screen object, X , T1610
+T16AF:
+                       .DB $03, $04, T1614 & $FF            ; 1x2 screen object,  Y, T1614
+                       .DB $03, $04, T1618 & $FF            ; 1x2 screen object,  Y, T1618
+T16B5:
+                       .DB $04, $01, T1688 & $FF            ; 2x2 screen object, XY, T1688
+                       .DB $04, $01, T1690 & $FF            ; 2x2 screen object, XY, T1690
+                       .DB $04, $01, T1680 & $FF            ; 2x2 screen object, XY, T1680
+                       .DB $04, $01, T1680 & $FF            ; 2x2 screen object, XY, T1680
+T16C1:
+                       .DB $03, $04, T1670 & $FF            ; 1x2 screen object,  Y, T1670
+                       .DB $03, $04, T1674 & $FF            ; 1x2 screen object,  Y, T1674
+                       .DB $03, $04, T1678 & $FF            ; 1x2 screen object,  Y, T1678
+                       .DB $03, $04, T167C & $FF            ; 1x2 screen object,  Y, T167C
+
+                       .DB $FF, $FF, $FF                    ; Dummy
+T16D0:
+                       .DB $01, $02, T1630 & $FF            ; 2x1 screen object, X , T1630
+                       .DB $01, $02, T1634 & $FF            ; 2x1 screen object, X , T1634
+                       .DB $01, $02, T1638 & $FF            ; 2x1 screen object, X , T1638
+                       .DB $01, $02, T163C & $FF            ; 2x1 screen object, X , T163C
+                       .DB $01, $02, T1640 & $FF            ; 2x1 screen object, X , T1640
+                       .DB $01, $02, T1644 & $FF            ; 2x1 screen object, X , T1644
+                       .DB $01, $02, T1648 & $FF            ; 2x1 screen object, X , T1648
+                       .DB $01, $02, T164C & $FF            ; 2x1 screen object, X , T164C
+T16E8:
+                       .DB $04, $04, T1650 & $FF            ; 2x2 screen object,  Y, T1650
+                       .DB $04, $04, T1654 & $FF            ; 2x2 screen object,  Y, T1654
+                       .DB $04, $04, T1658 & $FF            ; 2x2 screen object,  Y, T1658
+                       .DB $04, $04, T165C & $FF            ; 2x2 screen object,  Y, T165C
+                       .DB $04, $04, T1660 & $FF            ; 2x2 screen object,  Y, T1660
+                       .DB $04, $04, T1664 & $FF            ; 2x2 screen object,  Y, T1664
+                       .DB $04, $04, T1668 & $FF            ; 2x2 screen object,  Y, T1668
+                       .DB $04, $04, T166C & $FF            ; 2x2 screen object,  Y, T166C
 
 ; Alien movement direction table.
 ; Positive or negative offset for X and Y.
 T1700:
-                       .DB $FF, $FF, $01, $00, $FF, $00, $04, $00, $FC, $00, $00, $FC, $00, $04, $04, $FE ;
-                       .DB $FC, $FE, $04, $02, $FC, $02, $00, $04, $00, $04, $00, $04, $00, $04, $FF, $FF ;
-                       .DB $FC, $00, $FC, $00, $FC, $00, $FC, $00, $04, $00, $04, $00, $04, $00, $04, $00 ;
-                       .DB $04, $FC, $04, $04, $FC, $04, $FC, $FC, $FC, $FC, $FC, $04, $04, $04, $04, $FC ;
+                       .DB $FF, $FF                   ; Dummy
+                       .DB $01, $00                   ; X+1 (right), Y+0
+                       .DB $FF, $00                   ; X-1 (left), Y+0
+                       .DB $04, $00                   ; X+4, Y+0
+                       .DB $FC, $00                   ; X-4, Y+0
+                       .DB $00, $FC                   ; X+0, Y-4 (up)
+                       .DB $00, $04                   ; X+0, Y+4 (down)
+                       .DB $04, $FE                   ; X+4, Y-2
+                       .DB $FC, $FE                   ; X-4, Y-2
+                       .DB $04, $02                   ; X+4, Y+2
+                       .DB $FC, $02                   ; X-4, Y+2
+                       .DB $00, $04                   ; X+0, Y+4
+                       .DB $00, $04                   ; X+0, Y+4
+                       .DB $00, $04                   ; X+0, Y+4
+                       .DB $00, $04                   ; X+0, Y+4
+                       .DB $FF, $FF                   ; X-1, Y-1
+                       .DB $FC, $00                   ; X-4, Y+0
+                       .DB $FC, $00                   ; X-4, Y+0
+                       .DB $FC, $00                   ; X-4, Y+0
+                       .DB $FC, $00                   ; X-4, Y+0
+                       .DB $04, $00                   ; X+4, Y+0
+                       .DB $04, $00                   ; X+4, Y+0
+                       .DB $04, $00                   ; X+4, Y+0
+                       .DB $04, $00                   ; X+4, Y+0
+                       .DB $04, $FC                   ; X+4, Y-4
+                       .DB $04, $04                   ; X+4, Y+4
+                       .DB $FC, $04                   ; X-4, Y+4
+                       .DB $FC, $FC                   ; X-4, Y-4
+                       .DB $FC, $FC                   ; X-4, Y-4
+                       .DB $FC, $04                   ; X-4, Y+4
+                       .DB $04, $04                   ; X+4, Y+4
+                       .DB $04, $FC                   ; X+4, Y-4
 
 ; Per-tile hit-window + X-offset table for in-formation aliens:
 ; Lookup table used in the player-bullet vs. alien collision routine `L0E10`,
@@ -4303,15 +4466,34 @@ T17D6:
                        .DB $C3, $C3, $C6, $D6, $C7, $D7 ; Object 17D6 3x2 Bonus explosion right part
 
                        .ORG $17E0
-;
+;*****************************************************************************
+;* CoinChecking:
+;* Converts raw `CoinCount` (`$438F`) into playable credits, applying the coinage DIP on `DSW0`.
+;* Behaviour
+;* | `DSW0` bit4 | Pricing            | Return value in A        |
+;* |-------------|--------------------|--------------------------|
+;* | **0**       | 1 coin = 1 credit  | `CoinCount`              |
+;* | **1**       | 2 coins = 1 credit | `(CoinCount >> 1) & $0F` |
+;* `LD A,(CoinCount)` does not touch flags, so `RET Z` still tests the `AND $10`
+;* result: early exit skips the divide-by-2 when 1-coin mode is selected.
+;* Callers
+;* 1. Attract main loop (`$0039`) — after `AND A`, non-zero credits -> `PromptForStartGame`, else splash/demo.
+;* 2. `PromptForStartGame` (`$0295`) — `CP $02`: if credits ≥ 2, also print “1 OR 2 PLAYERS”.
+;* Both callers re-test **A** (`AND A` / `CP $02`); they do not rely on Z from the early `RET Z`.
+;* Pairing with `DecrementCoins`
+;* `$02D8`–`$02E2` uses the same DIP bit: if bit4 is set, the coin cost is doubled (1P costs 2 coins, 2P costs 4).
+;* That matches `CoinChecking` reporting `CoinCount / 2` as credits.
+;* In short: `$17E0` is “how many games can we start right now?”,
+;* not a coin-slot reader — slot counting is in `WaitVBlankCoin`.
+;*****************************************************************************
 CoinChecking:
                        LD      A,(DSW0)            ; 78xx DSW0
-                       AND     $10                 ; Coinage
-                       LD      A,(CoinCount)       ; 
-                       RET     Z                   
-                       RRCA                        
-                       AND     $0F                 
-                       RET                         
+                       AND     $10                 ; 0001_0000 Coinage
+                       LD      A,(CoinCount)       ; flags unchanged
+                       RET     Z                   ; if bit4 clear -> return CoinCount as-is
+                       RRCA                        ; CoinCount / 2
+                       AND     $0F                 ; 0000_1111
+                       RET                         ; 
 
                        .ORG $17F0
 ; Used for blank out characters
@@ -4651,26 +4833,42 @@ T1EC0:
                        .DB $20, $40, $20, $80
 
 ;*****************************************************************************
-;* Used for the animation speed at bird intro.
+;* Copyright-notice integrity check:
+;* It runs only in attract mode, as the tail of the intro bird animation.
+;* It sums the 26 characters of the on-screen line “` AMSTAR ELECTRONICS CORP. `”,
+;* adds a tuned constant, and adds the result into `HiScorehigh`.
+;* With unmodified ROM the total wraps to exactly `$00`, so the hi-score is left untouched.
+;* Change the copyright text and the hi-score gets corrupted.
+;* If a bootleg patches the copyright string — or the line is otherwise not intact when this runs,
+;* the sum no longer cancels and the delta is added to `HiScorehigh` on every frame of the bird intro.
+;* Since scores are BCD, that immediately produces garbage in the `HI-SCORE` display.
+;* A quiet, non-obvious tamper trap rather than an outright refusal to boot.
+;* The arithmetic
+;* | Term                                                           | Value               |
+;* |----------------------------------------------------------------|---------------------|
+;* | Sum of the 26 text codes (`$121`, truncated to 8 bits)         | `$21`               |
+;* | ROM byte at `$3FFD` (last byte of the `T3FC0` bird-init block) | `$B8`               |
+;* | Constant added at `$1EF2`                                      | `$27`               |
+;* | Total                                                          | `$100` -> **`$00`** |
 ;*****************************************************************************
 L1EE0:
-                       LD      DE,ForegroundScreen+$33D ; holding 0
-                       LD      BC,$001A            ;
+                       LD      DE,ForegroundScreen+$33D ; screen: start of the AMSTAR line
+                       LD      BC,$001A            ; B = 0 (accumulator), C = 26
 L1EE6:
-                       LD      A,(DE)              ;
-                       ADD     A,B                 ;
-                       LD      B,A                 ;
-                       CALL    RightOneColumn      ;
-                       DEC     C                   ;
-                       JP      NZ,L1EE6            ;
-                       LD      A,(DE)              ;
-                       ADD     A,B                 ;
-                       ADD     $27                 ;
-                       LD      HL,HiScorehigh      ;
-                       ADD     A,(HL)              ;
-                       LD      (HL),A              ;
-                       NOP                         ;
-                       RET                         ;
+                       LD      A,(DE)              ; read one character from screen
+                       ADD     A,B                 ; accumulate
+                       LD      B,A                 ; 
+                       CALL    RightOneColumn      ; DE -= 32
+                       DEC     C                   ; 
+                       JP      NZ,L1EE6            ; 
+                       LD      A,(DE)              ; 27th read -> $3FFD (ROM!)
+                       ADD     A,B                 ; 
+                       ADD     $27                 ; magic constant
+                       LD      HL,HiScorehigh      ; 
+                       ADD     A,(HL)              ; 
+                       LD      (HL),A              ; 
+                       NOP                         ; 
+                       RET                         ; 
 
                        .ORG $1F00
 ;
@@ -5071,7 +5269,7 @@ DrawIntroBirdAnimationFrame:
                        LD      A,(DE)              ; get data starting at T233A for animation frame index
                        LD      (HL),A              ; write to $4B70
                        CALL    DrawBirdObject      ; draw the bird at intro
-                       JP      L1EE0               ; 
+                       JP      L1EE0               ; Copyright-notice integrity check
 
                        .ORG $2204
 ;
@@ -5489,53 +5687,63 @@ L23D6:
 ;* Mother ship partikel explosion.
 ;*****************************************************************************
 L2400:
-                       CALL    L242C               ; 
-                       JP      Z,L2552             ; 
-                       CP      $20                 
-                       JP      C,EraseMothership   ; 
-                       JP      Z,L2520             ; Calculation and display of the bonus score for mothership explosion
-                       LD      B,A                 
-                       RRCA                        
-                       NOP                         
-                       LD      A,B                 
+                       CALL    L242C               ; Shared per-frame prologue for game state 6
+                       JP      Z,L2552             ; timer expired -> state 7, score display
+                       CP      $20                 ; 
+                       JP      C,EraseMothership   ; last $20 frames: wipe the hull
+                       JP      Z,L2520             ; exactly $20: Calculation and display of the bonus score for mothership explosion
+                       LD      B,A                 ; 
+                       RRCA                        ; 
+                       NOP                         ; 
+                       LD      A,B                 ; 
                        JP      NC,L20E8            ; 
-                       LD      A,E                 
-                       SUB     $05                 
-                       ADD     $C0                 
-                       LD      C,A                 
-                       LD      A,D                 
-                       ADC     $00                 
-                       LD      B,A                 
-                       LD      A,(HL)              
+                       LD      A,E                 ; 
+                       SUB     $05                 ; 
+                       ADD     $C0                 ; 
+                       LD      C,A                 ; 
+                       LD      A,D                 ; 
+                       ADC     $00                 ; 
+                       LD      B,A                 ; 
+                       LD      A,(HL)              ; 
                        LD      DE,T2A00            ; get the foreground tiles of the mothership particles explosion
                        LD      HL,T2B00            ; get the control data
                        JP      L2085               ; 
 
                        .ORG $242C
-;
+;*****************************************************************************
+;* Shared per-frame prologue for game state 6:
+;* It does three things: freezes the background scroll on a character boundary
+;* and re-programs the `58xx` scroll register, computes the scroll-compensated
+;* foreground screen origin for the explosion into `DE`,
+;* and ticks the state timer `CounterA5` down, returning it in `A` with the `Z` flag set on expiry.
+;* `L242C` therefore holds the scroll still: `AND $F8` rounds `CounterB9` down to a whole character row,
+;* stores it back, and re-programs the register with that value every frame.
+;* The background stops drifting, and — importantly for the next step,
+;* the scroll offset is guaranteed to be an exact multiple of 8 pixels.
+;*****************************************************************************
 L242C:
                        LD      HL,CounterB9        ; 
-                       LD      A,(HL)              
-                       AND     $F8                 
-                       LD      (HL),A              
-                       LD      (scrollRegister),A  ; 58xx scroll register
-                       LD      DE,$41C6            
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       LD      B,A                 
-                       LD      A,E                 
-                       SUB     B                   
-                       AND     $1F                 
-                       LD      B,A                 
-                       LD      A,E                 
-                       AND     $E0                 
-                       OR      B                   
-                       LD      E,A                 
-                       LD      L,$A5               
-                       DEC     (HL)                
-                       LD      A,(HL)              
-                       RET                         
+                       LD      A,(HL)              ; 
+                       AND     $F8                 ; 1111_1000 drop the 3 sub-character bits
+                       LD      (HL),A              ; write the aligned value back
+                       LD      (scrollRegister),A  ; 58xx scroll register58xx scroll register
+                       LD      DE,$41C6            ; mother-ship origin, foreground plane
+                       RRCA                        ; A = CounterB9 / 8
+                       RRCA                        ;   (clean shift: low 3 bits are 0)
+                       RRCA                        ; 
+                       LD      B,A                 ; B = scroll offset in character rows
+                       LD      A,E                 ; $C6
+                       SUB     B                   ; 
+                       AND     $1F                 ; 0001_1111 wrap within the 5-bit row field
+                       LD      B,A                 ; 
+                       LD      A,E                 ; $C6
+                       AND     $E0                 ; 1110_0000 keep the horizontal field ($C0)
+                       OR      B                   ; 
+                       LD      E,A                 ; E = $C0 | (($C6 - scroll) & $1F)
+                       LD      L,$A5               ; CounterA5
+                       DEC     (HL)                ; <- the flags the caller tests
+                       LD      A,(HL)              ; 
+                       RET                         ; 
 
 ;*****************************************************************************
 ;* Game state 7.
@@ -5569,43 +5777,58 @@ EraseMothership:
                        LD      DE,$4AC6            ; Screen coordinate of mother ship
                        LD      HL,$1C00            ; Background stars to erase the mother ship
                        JP      DrawImageCbyB       ; Erase the mother ship
-;
+
+;*****************************************************************************
+;* Re-arms the bird attack cycle:
+;* It runs once each time the bird dwell timer `B4BD3` expires and computes two fresh values:
+;* A new dwell time for `B4BD3` (how long until the next re-arm) and a new descent threshold `B4BD1`
+;* (how far the formation is allowed to scroll down before the direction flips).
+;* Both are derived from the surviving birds' vertical spread, the kill count,
+;* the frame counter, and the wave randomiser `M436F`.
+;* Notes
+;* - `RLCA` at `$2484`, `$2488` and `$26BD` is a rotate, not a shift.
+;*   For the small values involved it acts as ×2, but a value ≥ `$80` would wrap its top bit into bit 0.
+;* - Only `L` is reloaded throughout; `H` stays `$4B` for the `B4BDx` writes and `$43` after `$247E`.
+;*****************************************************************************
 L2476:
-                       LD      A,B                 
-                       ADD     A,C                 
-                       CALL    L2495               ; 
-                       LD      L,$D3               
-                       LD      (HL),A              
+                       LD      A,B                 ; 
+                       ADD     A,C                 ; A = B + C
+                       CALL    L2495               ; unrolled multiply
+                       LD      L,$D3               ; $4BD3 countdown timer between bird attacks ("bird extended storage")
+                       LD      (HL),A              ; B4BD3 = new dwell time
                        LD      HL,BirdsLeft        ; 
                        LD      A,$08               ; number of birds
-                       SUB     (HL)                ;
+                       SUB     (HL)                ; birds already killed
                        RLCA                        ; Multiply by 2
-                       LD      L,$9A               
-                       ADD     A,(HL)              
+                       LD      L,$9A               ; Counter9A
+                       ADD     A,(HL)              ; 
                        RLCA                        ; Multiply by 2
-                       LD      B,A                 
-; Attack timing / launch slot
+                       LD      B,A                 ; 
+; Attack timing / launch slot                      
                        LD      L,$6F               ; $436F (random)
-                       LD      A,(HL)              
-                       AND     $1E                 
+                       LD      A,(HL)              ; 
+                       AND     $1E                 ; 0001_1110 random even value 0..$1E
                        ADD     A,B                 ; B from (8-BirdsLeft) & Counter9A
-                       LD      (M4BD1),A           ; descent turnaround threshold (max depth)
-                       RET                         
+                       LD      (B4BD1),A           ; new descent turnaround threshold (max depth)
+                       RET                         ; 
 
                        .ORG $2495
-;
+;*****************************************************************************
+;* Unrolled multiply:
+;* `L2495` is a hand-unrolled "add `B` up to three times, then maybe double" helper.
+;*****************************************************************************
 L2495:
-                       ADD     A,B                 
-                       DEC     C                   
-                       RET     Z                   
-                       ADD     A,B                 
-                       DEC     C                   
-                       RET     Z                   
-                       ADD     A,B                 
-                       DEC     C                   
-                       RET     Z                   
-                       ADD     A,A                 
-                       RET                         
+                       ADD     A,B                 ; 
+                       DEC     C                   ; 
+                       RET     Z                   ; 
+                       ADD     A,B                 ; 
+                       DEC     C                   ; 
+                       RET     Z                   ; 
+                       ADD     A,B                 ; 
+                       DEC     C                   ; 
+                       RET     Z                   ; 
+                       ADD     A,A                 ; 
+                       RET                         ; 
 ;
 L24A0:
                        LD      A,(LevelAndRound)   ; 
