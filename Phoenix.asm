@@ -18,7 +18,7 @@
 ;* 20250330                                                                  *
 ;* Skipped all unused code and data.                                         *
 ;* All code and data at original offsets.                                    *
-;* Assebled with 'Micro Z80 assembler - uz80as' (v2.02).                     *
+;* Assembled with 'Micro Z80 assembler - uz80as' (v2.02).                    *
 ;* https://github.com/jorgicor/uz80as                                        *
 ;* Usage:                                                                    *
 ;* uz80as.exe -x Phoenix.asm                                                 *
@@ -502,10 +502,14 @@ SOUNDCTLB              .EQU $6800       ;Sound control B
 IN0                    .EQU $7000       ;Player inputs
 DSW0                   .EQU $7800       ;DIP switch settings
 
+                       .ORG $0000
 ;*****************************************************************************
 ; ic45
 ;*****************************************************************************
-                       .ORG $0000
+
+;*****************************************************************************
+;* Initialization
+;*****************************************************************************
 L0000:
                        NOP                         ; Start/restart and interrupts end up at 0008
                        NOP                         ;
@@ -798,46 +802,46 @@ GetPlayerInputsForDemo:
 ;* In: HL = $4399 (Counter98 LSB).
 ;*****************************************************************************
 SlowPrintScoreAverageTable:
-                       LD      A,(HL)              ; get actual index for slow print ($4399)
-                       AND     $1F                 ; mask out 0001_1111
-                       CP      $06                 ; reached state 6 ?
-                       RET     C                   ; no..return
-                       LD      E,A                 ; save the state
-                       LD      A,(HL)              ; get actual index for slow print ($4399)
-                       AND     $E0                 ; mask out 1110_0000
-                       LD      C,A                 ; save bits 5,6,7
-                       DEC     L                   ;
-                       LD      B,(HL)              ; get zero reference from $4398
-                       LD      L,$A8               ; ..and..
-                       LD      (HL),B              ; save it to $43A8
-                       INC     L                   ;
-                       LD      (HL),C              ; save bits 5,6,7 to $43A9
-                       LD      BC,T1860            ; data block starting with 'INSERT  COIN' text
-                       CALL    AddBCtoMem          ; stores MSB LSB
-                       LD      A,(HL)              ;
-                       DEC     L                   ;
-                       LD      H,(HL)              ;
-                       LD      L,A                 ;
-                       LD      A,E                 ;
-                       LD      D,(HL)              ; get the data
-                       INC     L                   ;
-                       LD      E,(HL)              ;
-                       DEC     L                   ;
-                       LD      C,A                 ;
-                       ADD     A,L                 ;
-                       LD      L,A                 ;
-                       LD      A,C                 ;
-                       SUB     $06                 ;
-                       LD      C,A                 ;
-                       JP      Z,L01C8             ;
+                       LD      A,(HL)              ; A = $4399 (Counter98 low byte)
+                       AND     $1F                 ; low 5 bits = char position within the line
+                       CP      $06                 ; positions 0..5 are the inter-line gap
+                       RET     C                   ; ...nothing to print yet
+                       LD      E,A                 ; E = char index (6..31)
+                       LD      A,(HL)              ; A = $4399 again
+                       AND     $E0                 ; top 3 bits = which line (0..7) * $20
+                       LD      C,A                 ; C = line offset (low byte)
+                       DEC     L                   ; -> $4398
+                       LD      B,(HL)              ; B = Counter98 high byte = block-of-8-lines offset
+                       LD      L,$A8               ; scratch pointer $43A8...
+                       LD      (HL),B              ; $43A8 = B (offset MSB)
+                       INC     L                   ; -> $43A9
+                       LD      (HL),C              ; $43A9 = C (offset LSB)
+                       LD      BC,T1860            ; base of the text-block table
+                       CALL    AddBCtoMem          ; ($43A8:$43A9) += $1860  -> pointer to the line record
+                       LD      A,(HL)              ; A = pointer LSB ($43A9)
+                       DEC     L                   ; -> $43A8
+                       LD      H,(HL)              ; H = pointer MSB
+                       LD      L,A                 ; HL = record address ($1860 + offset)
+                       LD      A,E                 ; A = char index
+                       LD      D,(HL)              ; D = record +0 = screen dest MSB
+                       INC     L                   ; 
+                       LD      E,(HL)              ; E = record +1 = screen dest LSB (DE = line start)
+                       DEC     L                   ; back to record +0
+                       LD      C,A                 ; C = char index
+                       ADD     A,L                 ; 
+                       LD      L,A                 ; HL = record + char index  (the char to print)
+                       LD      A,C                 ; A = char index
+                       SUB     $06                 ; columns to advance = index - 6
+                       LD      C,A                 ; 
+                       JP      Z,L01C8             ; index 6 -> print at the line start
 L01C1:
                        CALL    RightOneColumn      ; move to next screen position
                        DEC     C                   ;
-                       JP      NZ,L01C1            ;
+                       JP      NZ,L01C1            ; ...advance (index-6) columns
 L01C8:
-                       LD      A,(HL)              ;
+                       LD      A,(HL)              ; the character at record+index
                        LD      (DE),A              ; print one character on the screen
-                       JP      L14E0               ; check for coin event
+                       JP      L14E0               ; coinage text fixup, then return
 
                        .ORG $01D0
 ;*****************************************************************************
@@ -1082,11 +1086,11 @@ L02E3:
 UpdateHiScore:
                        LD      DE,Score1low        ; score of player 1
                        LD      HL,HiScorelow       ; current hi score
-                       CALL    L0314               ;
+                       CALL    L0314               ; 3 byte BCD compare
                        CALL    NC,L0320            ;
                        LD      E,Score2low & $FF   ; LSB of Score2low
                        LD      L,HiScorelow & $FF  ; LSB of HiScorelow
-                       CALL    L0314               ;
+                       CALL    L0314               ; 3 byte BCD compare
                        CALL    NC,L0320            ;
                        LD      L,HiScorelow & $FF  ; LSB of HiScorelow
                        LD      DE,$4141            ; High-score Screen coordinates (LSB)
@@ -1267,7 +1271,7 @@ L03CE:
 ;*****************************************************************************
 L03E2:
                        LD      BC,$0108            ; Next interval game state is 1, set LevelAndRound to 1st round, level 8 (mothership wave)
-                       LD      DE,$1000            ; set AliensLeft to 1 and BirdsLeft to 0 ?
+                       LD      DE,$1000            ; set AliensLeft to 1 and BirdsLeft to 0
                        JP      L03F1               ; 
 
 ;*****************************************************************************
@@ -1349,15 +1353,15 @@ L0430:
                        DEC     L                   ;
                        LD      A,(HL)              ; get GameOrAttract
                        CP      $01                 ;
-                       RET     Z                   ; return if 'One player game mode'
+                       RET     Z                   ; one-player mode -> no switch
                        INC     L                   ;
                        LD      A,(HL)              ; get GameAndDemoOrSplash
                        AND     A                   ; updates the zero flag
-                       JP      Z,L04A0             ; if 'Game and demo'
+                       JP      Z,L04A0             ; currently player 1 -> switch to player 2
                        LD      L,$90               ;
-                       LD      A,(HL)              ; get Player1Lives
+                       LD      A,(HL)              ; else currently player 2: check Player1Lives
                        AND     A                   ; updates the zero flag
-                       RET     Z                   ; return if no lives left.
+                       RET     Z                   ; player 1 has no lives -> don't switch back
                        LD      L,$A3               ;
                        LD      (HL),$00            ; set GameAndDemoOrSplash to 'Game and demo for player 1'
                        LD      BC,$0100            ; from bank 1 to bank 0
@@ -1390,50 +1394,50 @@ L0430:
 ;* and the object buffer — so each player resumes precisely where they left off.
 ;*****************************************************************************
 CopyMemoryBank:
-                       LD      HL,videoRegister    ; 50xx video register
-                       LD      DE,ForegroundScreen+$320; 1st row 1st line
+                       LD      HL,videoRegister    ; 50xx video / RAM bank-select register
+                       LD      DE,ForegroundScreen+$320; $4320 = 1st row, 1st line of playfield
 ;----- Region 1: the visible foreground screen --------------------------------
 L0466:
-                       LD      (HL),B              ;
-                       LD      A,(DE)              ;
-                       LD      (HL),C              ;
-                       LD      (DE),A              ;
-                       INC     E                   ;
-                       LD      A,E                 ;
-                       AND     $03                 ;
-                       JP      NZ,L0466            ;
-                       LD      A,E                 ;
-                       AND     $F0                 ;
-                       SUB     $20                 ;
-                       LD      E,A                 ;
-                       JP      NC,L0466            ;
-                       DEC     D                   ;
-                       LD      A,D                 ;
-                       CP      $3F                 ;
-                       JP      NZ,L0466            ;
-                       LD      DE,M4380            ;
+                       LD      (HL),B              ; select source bank
+                       LD      A,(DE)              ; read byte from source bank
+                       LD      (HL),C              ; select destination bank
+                       LD      (DE),A              ; write byte into destination bank
+                       INC     E                   ; next byte
+                       LD      A,E                 ; 
+                       AND     $03                 ; still inside the 4-byte group?
+                       JP      NZ,L0466            ; ...yes, copy the 4 bytes of this group
+                       LD      A,E                 ; group done: move to the next screen line
+                       AND     $F0                 ; snap E to its $x0 boundary
+                       SUB     $20                 ; step back one screen line (-32)
+                       LD      E,A                 ; 
+                       JP      NC,L0466            ; no underflow -> keep copying this page
+                       DEC     D                   ; underflow -> previous page
+                       LD      A,D                 ; 
+                       CP      $3F                 ; dropped below $4000 ?
+                       JP      NZ,L0466            ; no -> continue ($43..$40 pages)
+                       LD      DE,M4380            ; yes -> region 1 done
 ;----- Region 2: game-state + score block $4380-$43B7 -------------------------
 L0484:
-                       LD      (HL),B              ;
-                       LD      A,(DE)              ;
-                       LD      (HL),C              ;
-                       LD      (DE),A              ;
-                       INC     E                   ;
-                       LD      A,E                 ;
-                       CP      $B8                 ;
-                       JP      NZ,L0484            ;
-                       LD      DE,M4BC0            ;
+                       LD      (HL),B              ; source bank
+                       LD      A,(DE)              ; 
+                       LD      (HL),C              ; dest bank
+                       LD      (DE),A              ; 
+                       INC     E                   ; 
+                       LD      A,E                 ; 
+                       CP      $B8                 ; until $43B8
+                       JP      NZ,L0484            ; 
+                       LD      DE,B4BC0            ; then the object buffer...
 ;----- Region 3: object buffer $4BC0-$4BFF ------------------------------------
 L0492:
-                       LD      (HL),B              ;
-                       LD      A,(DE)              ;
-                       LD      (HL),C              ;
-                       LD      (DE),A              ;
-                       INC     E                   ;
-                       LD      A,E                 ;
-                       CP      $00                 ;
-                       JP      NZ,L0492            ;
-                       RET                         ;
+                       LD      (HL),B              ; source bank
+                       LD      A,(DE)              ; 
+                       LD      (HL),C              ; dest bank
+                       LD      (DE),A              ; 
+                       INC     E                   ; 
+                       LD      A,E                 ; 
+                       CP      $00                 ; until E wraps ($4C00)
+                       JP      NZ,L0492            ; 
+                       RET                         ; 
 
                        .ORG $04A0
 ;*****************************************************************************
@@ -1513,8 +1517,8 @@ L0506:
                        LD      HL,M4392            ;
                        LD      B,$06               ; number of bytes to clear
                        CALL    ClearBbytesAtHL     ;
-                       LD      A,(M4B50)           ;
-                       LD      (M4394),A           ;
+                       LD      A,(M4B50)           ; get alien movement pattern table MSB
+                       LD      (M4394),A           ; save start value list pointer for alien movement MSB
                        RET                         ;
 
 ;*****************************************************************************
@@ -1532,7 +1536,7 @@ L0526:
                        CALL    L0532               ; init alien data for a new level and round
                        CALL    L0A6C               ; get screen ram adress for all aliens
                        CALL    L0506               ; clear 4392 to 4397, init 4394
-                       JP      L32B0               ;
+                       JP      L32B0               ; Bird-level init
 
 ;*****************************************************************************
 ;* Init alien data for a new level and round
@@ -1591,13 +1595,13 @@ InitBackgroundData:
                        RET                         ;
 
                        .ORG $0598
-; Table for the global level data, over game levels.
+; Mapping table for the background graphic's data, over game levels.
 ; Bit0 - bit3 of $43B8 is the table index.
 ; Data will be fetched two times. Once before and once after the 'spiral fill' animation.
 ; The double call is really a side effect of always going through
-; `GameState = 2` on every level entry, including “levels” that are only the spiral transition.
+; `GameState = 2` on every level entry, including "levels" that are only the spiral transition.
 ; So the first fetch is needless.
-; They did not special-case “skip global init until after spiral.”
+; They did not special-case "skip global init until after spiral."
 ; $05A0 should be $CC but it was never fixed and has no side effect.
 T0598:
                        .DB T05A8 & $FF, T05A8 & $FF    ;init values for 1st alien wave (pointer to $05A8, $05A8)
@@ -1811,43 +1815,43 @@ AddPlanetsToBackground:
                        LD      A,(CounterB9)       ;
                        LD      C,A                 ;
                        CP      (HL)                ;
-                       RET     NZ                  ;
-                       LD      A,(HL)              ;
-                       INC     L                   ;
-                       ADD     A,(HL)              ;
-                       DEC     L                   ;
-                       LD      (HL),A              ;
-                       INC     L                   ;
-                       INC     L                   ;
-                       INC     (HL)                ;
-                       LD      B,(HL)              ;
-                       INC     L                   ;
-                       INC     (HL)                ;
-                       LD      A,(HL)              ;
+                       RET     NZ                  ; only when CounterB9 == $43AB
+                       LD      A,(HL)              ; 
+                       INC     L                   ; -> $43AC
+                       ADD     A,(HL)              ; + $43AC
+                       DEC     L                   ; 
+                       LD      (HL),A              ; $43AB += $43AC  (schedule next planet row)
+                       INC     L                   ; 
+                       INC     L                   ; -> $43AD
+                       INC     (HL)                ; $43AD++
+                       LD      B,(HL)              ; B = $43AD  (planet X, LSB table)
+                       INC     L                   ; -> $43AE
+                       INC     (HL)                ; $43AE++
+                       LD      A,(HL)              ; A = $43AE  (planet X, MSB table)
                        LD      HL,T1E20            ; MSB's of screen ram for planets
-                       AND     $1F                 ;
-                       ADD     A,L                 ;
-                       LD      L,A                 ;
-                       LD      D,(HL)              ;
-                       ADD     $20                 ;
-                       LD      L,A                 ;
-                       LD      E,(HL)              ;
-                       LD      A,C                 ;
-                       RRCA                        ;
-                       RRCA                        ;
-                       RRCA                        ;
-                       AND     $1E                 ;
-                       ADD     A,E                 ;
-                       ADD     $02                 ;
-                       LD      E,A                 ;
-                       LD      HL,T1E60            ; LSB's of screen ram for planets
-                       LD      A,B                 ;
-                       AND     $1F                 ;
-                       ADD     A,L                 ;
-                       LD      L,A                 ;
-                       LD      L,(HL)              ;
-                       CALL    L07DC               ; draw the characters at background
-                       RET                         ;
+                       AND     $1F                 ; slot index 0..31
+                       ADD     A,L                 ; 
+                       LD      L,A                 ; HL = T1E20 + index
+                       LD      D,(HL)              ; D = MSB of screen address
+                       ADD     $20                 ; 
+                       LD      L,A                 ; HL = T1E40 + index
+                       LD      E,(HL)              ; E = LSB of screen address  <-- T1E40
+                       LD      A,C                 ; C = CounterB9 (scroll phase)
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       AND     $1E                 ; 0001_1111
+                       ADD     A,E                 ; add scroll-based vertical offset...
+                       ADD     $02                 ; ...to the T1E40 LSB
+                       LD      E,A                 ; final DE = planet destination in $48xx-$4Bxx
+                       LD      HL,T1E60            ; graphic-select offsets into T1E00
+                       LD      A,B                 ; 
+                       AND     $1F                 ; 0001_1111
+                       ADD     A,L                 ; 
+                       LD      L,A                 ; 
+                       LD      L,(HL)              ; HL = $1E00 + T1E60[j]  -> 2x2 tile data
+                       CALL    L07DC               ; draw the 2x2 planet at DE
+                       RET                         ; 
 
 ;*****************************************************************************
 ;* Print score column
@@ -2160,10 +2164,10 @@ L07F0:
                        CALL    ClearForeground     ;
                        JP      SetBitsVideoRegister
 
+                       .ORG $0800
 ;*****************************************************************************
 ; ic46
 ;*****************************************************************************
-                       .ORG $0800
 ;*****************************************************************************
 ;* Game state 3.
 ;* Normal game play.
@@ -2260,20 +2264,20 @@ PlayerUpdate:
 ; Copy current player data to old player data.
 ;*****************************************************************************
 L0886:
-                       LD      HL,M43EB            ;
-                       LD      B,$03               ;
+                       LD      HL,M43EB            ; start at current-LSB of object 2
+                       LD      B,$03               ; 3 objects
 L088B:
-                       LD      D,(HL)              ;
-                       DEC     HL                  ;
-                       LD      E,(HL)              ;
-                       DEC     HL                  ;
-                       LD      (HL),D              ;
-                       DEC     HL                  ;
-                       LD      (HL),E              ;
-                       DEC     HL                  ;
-                       DEC     B                   ;
-                       JP      NZ,L088B            ;
-                       RET                         ;
+                       LD      D,(HL)              ; D = current LSB ($43EB)
+                       DEC     HL                  ; 
+                       LD      E,(HL)              ; E = current MSB ($43EA)
+                       DEC     HL                  ; 
+                       LD      (HL),D              ; old LSB ($43E9) = current LSB
+                       DEC     HL                  ; 
+                       LD      (HL),E              ; old MSB ($43E8) = current MSB
+                       DEC     HL                  ; 
+                       DEC     B                   ; 
+                       JP      NZ,L088B            ; 
+                       RET                         ; 
 
                        .ORG $08A0
 ;*****************************************************************************
@@ -2313,7 +2317,7 @@ MovePlayer:
                        LD      A,(HL)              ; get $43C0 PlayerState
                        AND     $F7                 ; mask out 1111_0111
                        LD      (HL),A              ;
-                       LD      L,$A6               ;
+                       LD      L,$A6               ; ShieldCount
                        LD      (HL),$FF            ;
 L08EA:
                        DEC     (HL)                ; decrement ShieldCount
@@ -2476,25 +2480,25 @@ L09A6:
 ;*****************************************************************************
 GetScreenRamAddress:
                        LD      HL,T0A00            ; Screen ram addresses for the top row (left to right)
-                       LD      A,(BC)              ; get the coordinate
-                       AND     $F8                 ; 1111_1000
-                       RRCA                        ; 0111_1100
-                       RRCA                        ; 0011_1110
-                       ADD     A,L                 ;
-                       LD      L,A                 ;
-                       LD      A,(HL)              ; get MSB of screen ram address for row
+                       LD      A,(BC)              ; get the X coordinate
+                       AND     $F8                 ; drop the low 3 (sub-cell) bits
+                       RRCA                        ; 
+                       RRCA                        ; A = column * 2  (2-byte entries)
+                       ADD     A,L                 ; 
+                       LD      L,A                 ; HL = T0A00 + column*2
+                       LD      A,(HL)              ; MSB of that column's screen address
                        LD      (DE),A              ; save it
-                       INC     BC                  ;
-                       INC     DE                  ;
+                       INC     BC                  ; 
+                       INC     DE                  ; 
                        INC     HL                  ; move to LSB for T0A00
                        LD      A,(BC)              ; get the coordinate
                        AND     $F8                 ; 1111_1000
                        RRCA                        ; 0111_1100
                        RRCA                        ; 0011_1110
                        RRCA                        ; 0001_1111
-                       ADD     A,(HL)              ; add to LSB of screen ram address for row
+                       ADD     A,(HL)              ; LSB += (Y >> 3)  -> row within the column
                        LD      (DE),A              ; save it
-                       RET                         ;
+                       RET                         ; 
 
                        .ORG $0A00
 ; Screen ram addresses for the top row (left to right)
@@ -2614,7 +2618,7 @@ L0A8A:
                        ADD     $04                 ;
                        LD      E,A                 ;
                        CP      $03                 ;
-                       JP      NZ,L0A72            ;
+                       JP      NZ,L0A72            ; loop for all aliens
                        RET                         ;
 
                        .ORG $0AA0
@@ -2669,29 +2673,32 @@ L0AD8:
 
 ;*****************************************************************************
 ;* Game state 4.
-;* Player ship partikel explosion.
+;* Player ship partikel explosion. (ship blows apart)
+;* - It freezes scrolling (`CounterB9 &= $F8` -> scroll register) so the blast stays put.
+;* - It anchors the effect at the ship's screen address (`$43E2/$43E3`).
+;* - `CounterA5` (`$43A5`) is the animation phase, decremented each frame and dispatched.
 ;*****************************************************************************
 L0AEA:
-                       LD      HL,CounterB9        ;
-                       LD      A,(HL)              
-                       AND     $F8                 
-                       LD      (HL),A              
-                       LD      (scrollRegister),A  ; 58xx scroll register
-                       LD      L,$E2               
-                       LD      D,(HL)              
-                       INC     L                   
-                       LD      E,(HL)              
-                       CALL    LeftOneColumn       ;
-                       DEC     DE                  
-                       NOP                         
-                       LD      L,$A5               
-                       DEC     (HL)                
-                       LD      A,(HL)              
-                       JP      Z,L0B15             ;
-                       CP      $20                 
-                       JP      C,L0BA0             ;
-                       JP      Z,ClearForeground   ;
-                       JP      L0BBA               ;
+                       LD      HL,CounterB9        ; 
+                       LD      A,(HL)              ; 
+                       AND     $F8                 ; 1111_1000 coarsen the scroll phase...
+                       LD      (HL),A              ; 
+                       LD      (scrollRegister),A  ; ...and freeze the 58xx scroll
+                       LD      L,$E2               ; PlayerShipMSB ($43E2)
+                       LD      D,(HL)              ; 
+                       INC     L                   ; PlayerShipLSB ($43E3)
+                       LD      E,(HL)              ; 
+                       CALL    LeftOneColumn       ; anchor the blast at the ship
+                       DEC     DE                  ; 
+                       NOP                         ; 
+                       LD      L,$A5               ; CounterA5 = explosion phase/timer
+                       DEC     (HL)                ; 
+                       LD      A,(HL)              ; 
+                       JP      Z,L0B15             ; phase 0  -> finish (lose a life)
+                       CP      $20                 ; 
+                       JP      C,L0BA0             ; late phase -> clear background/scroll
+                       JP      Z,ClearForeground   ; 
+                       JP      L0BBA               ; main phase -> render particles
 
                        .ORG $0B15
 ;*****************************************************************************
@@ -2703,7 +2710,7 @@ L0B15:
                        LD      (HL),$05            ;
                        DEC     L                   ;
                        LD      A,(HL)              ;
-                       ADD     $90                 ; -> Player1Lives / Player2Lives slot                 
+                       ADD     $90                 ; -> Player1Lives / Player2Lives slot
                        LD      L,A                 ;
                        LD      A,(HL)              ;
                        AND     A                   ; updates the zero flag
@@ -2737,17 +2744,17 @@ T0B38:
 ;* PlayerShipX position is reset.
 ;*****************************************************************************
 ShieldsExpired:
-                       CALL    DrawImageCbyB       ;
-                       LD      HL,PlayerState      ;
-                       LD      (HL),$0C            
-                       INC     L                   
-                       LD      (HL),$0C            
-                       INC     L                   
-                       LD      A,(HL)              
-                       AND     $F8                 
-                       OR      $03                 
-                       LD      (HL),A              
-                       RET                         
+                       CALL    DrawImageCbyB       ; 
+                       LD      HL,PlayerState      ; 
+                       LD      (HL),$0C            ; 0000_1100
+                       INC     L                   ; PlayerShape
+                       LD      (HL),$0C            ; 0000_1100
+                       INC     L                   ; PlayerShipX
+                       LD      A,(HL)              ; get
+                       AND     $F8                 ; 1111_1000
+                       OR      $03                 ; 0000_0011
+                       LD      (HL),A              ; reset PlayerShipX
+                       RET                         ; 
 
                        .ORG $0B60
 ;*****************************************************************************
@@ -2755,42 +2762,42 @@ ShieldsExpired:
 ;* 'GAME OVER'.
 ;*****************************************************************************
 L0B60:
-                       LD      HL,CounterA5        ;
-                       INC     (HL)                
-                       LD      A,(HL)              
-                       CP      $40                 
-                       JP      Z,ClearBackground   ;
+                       LD      HL,CounterA5        ; 
+                       INC     (HL)                ; 
+                       LD      A,(HL)              ; 
+                       CP      $40                 ; 
+                       JP      Z,ClearBackground   ; 
                        LD      HL,T1A00            ; "        GAME  OVER        "
-                       LD      C,$01               
-                       CP      $80                 
+                       LD      C,$01               ; 
+                       CP      $80                 ; 
                        JP      NZ,L0B95            ; 
                        LD      HL,GameState        ; Next interval game state ...
                        LD      (HL),$00            ; ... is 0 (new game start)
-                       LD      L,$90               
-                       LD      A,(HL)              
-                       INC     L                   
-                       OR      (HL)                
-                       RET     NZ                  
+                       LD      L,$90               ; Player1Lives
+                       LD      A,(HL)              ; 
+                       INC     L                   ; Player2Lives
+                       OR      (HL)                ; 
+                       RET     NZ                  ; 
                        XOR     A                   ; A=0
-                       LD      L,$98               
-                       LD      (HL),A              
-                       INC     L                   
-                       LD      (HL),A              
-                       LD      L,$A2               
-                       LD      (HL),A              
-                       INC     L                   
-                       LD      A,(HL)              
+                       LD      L,$98               ; Counter98
+                       LD      (HL),A              ; 
+                       INC     L                   ; Counter98+1
+                       LD      (HL),A              ; 
+                       LD      L,$A2               ; GameOrAttract
+                       LD      (HL),A              ; 
+                       INC     L                   ; GameAndDemoOrSplash
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   
-                       LD      (HL),$00            
+                       RET     Z                   ; 
+                       LD      (HL),$00            ; 
                        LD      BC,$0100            ; from bank 1 to bank 0
-                       CALL    CopyMemoryBank      ;
-                       RET                         
+                       CALL    CopyMemoryBank      ; 
+                       RET                         ; 
 ;
 L0B95:
-                       CALL    PrintTextLines      ;
-                       CALL    L01E4               ; Print the copyright lines
-                       JP      L1DF0               ;
+                       CALL    PrintTextLines      ; "        GAME  OVER        "
+                       CALL    L01E4               ; print the copyright lines
+                       JP      L1DF0               ; protection against piracy
 
                        .ORG $0BA0
 ;*****************************************************************************
@@ -2825,13 +2832,13 @@ L0BA0:
 ;* and any in progress killed alien effects without doing all of them in a single frame.
 ;*****************************************************************************
 L0BBA:
-                       LD      B,A                 ;
-                       RRCA                        ;
-                       JP      NC,L0FC0            ; Handle animations for killed aliens
-                       RRCA                        ;
-                       LD      A,B                 ;
-                       JP      C,L2070             ;
-                       JP      L20E8               ;
+                       LD      B,A                 ; save the CounterA5 phase value
+                       RRCA                        ; bit0 -> carry
+                       JP      NC,L0FC0            ; bit0=0: handle animations for killed aliens
+                       RRCA                        ; bit0 was 1; now original bit1 -> carry
+                       LD      A,B                 ; restore CounterA5
+                       JP      C,L2070             ; bits1:0=11: render ship particle field (T2800/T2900)
+                       JP      L20E8               ; bits1:0=01: draw 4x4 ship-fragment sprite
 
                        .ORG $0BCA
 ;*****************************************************************************
@@ -2933,16 +2940,16 @@ L0C6B:
                        LD      DE,AlienBullet0MSB  ; 
 L0C71:
                        CALL    GetScreenRamAddress ; 
-                       INC     BC                  
-                       INC     BC                  
-                       INC     BC                  
-                       INC     DE                  
-                       INC     DE                  
-                       INC     DE                  
-                       LD      A,C                 
-                       CP      $E2                 
-                       JP      NZ,L0C71            ; 
-                       RET                         
+                       INC     BC                  ; 
+                       INC     BC                  ; 
+                       INC     BC                  ; 
+                       INC     DE                  ; 
+                       INC     DE                  ; 
+                       INC     DE                  ; 
+                       LD      A,C                 ; 
+                       CP      $E2                 ; 
+                       JP      NZ,L0C71            ; loop for 5 enemy bullet slots
+                       RET                         ; 
 
                        .ORG $0C84
 ;*****************************************************************************
@@ -2950,38 +2957,38 @@ L0C71:
 ;* They have half the speed of player bullets and a simple animation.
 ;*****************************************************************************
 L0C84:
-                       LD      A,(HL)              
-                       AND     $08                 
-                       RET     Z                   
-                       NOP                         
-                       NOP                         
-                       INC     L                   
-                       LD      A,(HL)              
-                       XOR     $04                 
-                       LD      (HL),A              
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       ADD     $04                 
-                       LD      (HL),A              
-                       CP      $F9                 
-                       JP      NC,L096E            ; 
-                       DEC     L                   
+                       LD      A,(HL)              ; get enemy bullet control state
+                       AND     $08                 ; 0000_1000
+                       RET     Z                   ; if bit 3 not set
+                       NOP                         ; 
+                       NOP                         ; 
+                       INC     L                   ; 
+                       LD      A,(HL)              ; get enemy bullet character code
+                       XOR     $04                 ; toggle 0000_0100 for animation: $58/$5C, $59/$5D, ...
+                       LD      (HL),A              ; set new character code
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      A,(HL)              ; get enemy bullet coordinate Y
+                       ADD     $04                 ; move bullet down
+                       LD      (HL),A              ; 
+                       CP      $F9                 ; bottom of screen
+                       JP      NC,L096E            ; if bottom of screen reached
+                       DEC     L                   ; enemy bullet coordinate X
                        CALL    L0CB4               ; 
-                       LD      D,H                 
-                       LD      A,L                 
-                       ADD     $20                 
-                       LD      E,A                 
-                       EX      DE,HL               
-                       LD      B,(HL)              
-                       INC     HL                  
-                       LD      C,(HL)              
-                       LD      A,(BC)              
-                       EX      DE,HL               
-                       INC     L                   
-                       CP      $E8                 
-                       JP      NC,L096E            ; 
-                       RET                         
+                       LD      D,H                 ; 
+                       LD      A,L                 ; 
+                       ADD     $20                 ; move to EnemyBullet(x)MSB
+                       LD      E,A                 ; 
+                       EX      DE,HL               ; 
+                       LD      B,(HL)              ; get EnemyBullet(x)MSB
+                       INC     HL                  ; 
+                       LD      C,(HL)              ; get EnemyBullet(x)LSB
+                       LD      A,(BC)              ; 
+                       EX      DE,HL               ; 
+                       INC     L                   ; 
+                       CP      $E8                 ; 
+                       JP      NC,L096E            ; if >= $E8 (fgtiles upper part of player shield)
+                       RET                         ; 
 
                        .ORG $0CB4
 ;
@@ -3019,96 +3026,96 @@ L0CD8:
                        LD      BC,AlienBullet0State; data structure (grid)
                        LD      DE,OldAlienBullet0MSB; screen ram
 L0CDE:
-                       PUSH    BC                  
+                       PUSH    BC                  ; 
                        CALL    UpdateScreenObjects ; 
-                       POP     BC                  
-                       LD      A,C                 
-                       ADD     $04                 
-                       LD      C,A                 
-                       ADD     $20                 
-                       LD      E,A                 
-                       LD      D,B                 
+                       POP     BC                  ; 
+                       LD      A,C                 ; 
+                       ADD     $04                 ; 
+                       LD      C,A                 ; 
+                       ADD     $20                 ; 
+                       LD      E,A                 ; 
+                       LD      D,B                 ; 
                        AND     A                   ; updates the zero flag
                        JP      NZ,L0CDE            ; loop for all bullet slots
-                       RET                         
+                       RET                         ; 
 
                        .ORG $0CF4
 ;*****************************************************************************
 ;* Alien collision on left or right side of player ship.
 ;*****************************************************************************
 L0CF4:
-                       POP     DE                  
-                       POP     BC                  
-                       RET                         
+                       POP     DE                  ; 
+                       POP     BC                  ; 
+                       RET                         ; 
 
                        .ORG $0D1C
 ;*****************************************************************************
 ;* Alien movement update.
 ;*****************************************************************************
 L0D1C:
-                       LD      BC,M4B70            ; 
-                       LD      HL,M4B50            ; 
+                       LD      BC,M4B70            ; Alien control state A
+                       LD      HL,M4B50            ; Alien movement pattern table
 L0D22:
                        CALL    L0D30               ; 
-                       INC     C                   
-                       INC     C                   
-                       INC     L                   
-                       LD      A,$B0               
-                       CP      C                   
-                       JP      NZ,L0D22            ; 
-                       RET                         
+                       INC     C                   ; 
+                       INC     C                   ; 
+                       INC     L                   ; 
+                       LD      A,$B0               ; 
+                       CP      C                   ; 
+                       JP      NZ,L0D22            ; loop for 16 aliens
+                       RET                         ; 
 
                        .ORG $0D30
 ;
 L0D30:
-                       LD      D,(HL)              
-                       INC     HL                  
-                       LD      A,(BC)              
-                       INC     BC                  
-                       INC     BC                  
-                       AND     $08                 
+                       LD      D,(HL)              ; get MSB of pointer for alien movement pattern
+                       INC     HL                  ; 
+                       LD      A,(BC)              ; get alien control state A
+                       INC     BC                  ; 
+                       INC     BC                  ; 
+                       AND     $08                 ; 0000_1000
                        RET     Z                   ; if bit3 of alien control state A, not set
-                       LD      E,(HL)              
-                       EX      DE,HL               
-                       LD      A,(HL)              ; get T1000 (Closed loops pattern table for aliens)
-                       RLCA                        ; Multiply by 2
+                       LD      E,(HL)              ; get LSB of pointer for alien movement pattern
+                       EX      DE,HL               ; 
+                       LD      A,(HL)              ; get pointer to movement list (T1000)
+                       RLCA                        ; multiply by 2 to get a 2 byte offset at T1700
                        ADD     $00                 ; reset all flags
-                       LD      L,A                 
-                       LD      H,T1700 >> 8        ; get MSB for T1700
+                       LD      L,A                 ; get LSB for movement direction table (T1700)
+                       LD      H,T1700 >> 8        ; get MSB for movement direction table (T1700)
                        XOR     A                   ; A=0
-                       CP      (HL)                
-                       JP      Z,L0D4F             ; 
-                       INC     HL                  
-                       CP      (HL)                
-                       JP      Z,L0D5E             ; 
-                       DEC     HL                  
-                       LD      A,(BC)              
-                       ADD     A,(HL)              
-                       LD      (BC),A              
+                       CP      (HL)                ; check for end marker
+                       JP      Z,L0D4F             ; if end reached
+                       INC     HL                  ; value for Y movement
+                       CP      (HL)                ; check for Y movement
+                       JP      Z,L0D5E             ; if no Y movement
+                       DEC     HL                  ; value for X movement
+                       LD      A,(BC)              ; get alien screen coordinate X
+                       ADD     A,(HL)              ; add the X delta from T1700
+                       LD      (BC),A              ; save it back
 L0D4F:
-                       INC     BC                  
-                       INC     HL                  
-                       LD      A,(BC)              
-                       ADD     A,(HL)              
-                       LD      (BC),A              
-                       DEC     BC                  
-                       AND     $07                 
-                       EX      DE,HL               
-                       RET     NZ                  
-                       INC     (HL)                
-                       RET                         
+                       INC     BC                  ; -> Y coordinate
+                       INC     HL                  ; Y from alien movement direction table (T1700)
+                       LD      A,(BC)              ; get alien screen coordinate Y
+                       ADD     A,(HL)              ; add the Y delta
+                       LD      (BC),A              ; save it back
+                       DEC     BC                  ; alien screen coordinate X
+                       AND     $07                 ; 0000_0111
+                       EX      DE,HL               ; 
+                       RET     NZ                  ; if grid border not reached
+                       INC     (HL)                ; next movement list pointer (T1000)
+                       RET                         ; 
 
                        .ORG $0D5E
 L0D5E:
-                       DEC     HL                  
-                       LD      A,(BC)              
-                       ADD     A,(HL)              
-                       LD      (BC),A              
-                       AND     $07                 
-                       EX      DE,HL               
-                       RET     NZ                  
-                       INC     (HL)                
-                       RET                         
+                       DEC     HL                  ; value for X movement
+                       LD      A,(BC)              ; get Alien screen coordinate X
+                       ADD     A,(HL)              ; add both
+                       LD      (BC),A              ; save
+                       AND     $07                 ; 0000_0111
+                       EX      DE,HL               ; 
+                       RET     NZ                  ; if grid border not reached
+                       INC     (HL)                ; next movement list pointer (T1000)
+                       RET                         ; 
 
                        .ORG $0D70
 ;*****************************************************************************
@@ -3230,40 +3237,40 @@ L0DF0:
                        LD      HL,AbovePlayerBulletMSB; MSB screen ram: One character above player bullet
                        CALL    L0E10               ; 
                        LD      BC,AbovePlayerBulletState; 
-                       LD      HL,M43EA            ; MSB screen ram: Left screen edge, one character above player ship
-                       JP      L0E10               ; 
+                       LD      HL,M43EA            ; current screen addr of above-bullet
+                       JP      L0E10               ; check char there for a hit
 
                        .ORG $0E10
 ;
 L0E10:
                        LD      A,(BC)              ; get player bullet state
                        AND     $08                 ; mask out 0000_1000
-                       RET     Z                   ; if bit3 not set
+                       RET     Z                   ; if no bullet triggered
                        LD      D,(HL)              ; get MSB screen ram adress
-                       INC     L                   ;
+                       INC     L                   ; 
                        LD      E,(HL)              ; get LSB screen ram adress
-                       LD      A,(DE)              ; get character
-                       CP      $C0                 ; bullets and alien ($50 - $BF)
-                       RET     NC                  ;
-                       CP      $60                 ; alien ($60 - $BF)
-                       RET     C                   ; if no character
-                       CP      $68                 ; alien
-                       JP      NC,L0E39            ; 
-                       AND     $07                 ; mask out 0000_0111
-                       RLCA                        ; Multiply by 4 ..
-                       RLCA                        ; ..
-                       ADD     $40                 ;
-                       LD      L,A                 ;
-                       LD      H,T1740 >> 8        ; T1740
-                       INC     BC                  ;
-                       INC     BC                  ;
-                       LD      A,(BC)              ;
-                       AND     $07                 ;
-                       CP      (HL)                ;
-                       RET     NC                  ;
-                       INC     HL                  ;
-                       CP      (HL)                ;
-                       RET     C                   ;
+                       LD      A,(DE)              ; character under the bullet
+                       CP      $C0                 ; is explosion parts ($C0 - $E3) ?
+                       RET     NC                  ; ignore them.
+                       CP      $60                 ; is alien in base formation ($60 - $BF) ?
+                       RET     C                   ; below $60 -> NOT a target, ignore
+                       CP      $68                 ; is alien out of formation ($68 - $BF) ?
+                       JP      NC,L0E39            ; if yes
+                       AND     $07                 ; mask out 0000_0111 tile type 0..7 (low 3 bits of char code)
+                       RLCA                        ; x2
+                       RLCA                        ; x4  -> 4-byte stride
+                       ADD     $40                 ; 
+                       LD      L,A                 ; 
+                       LD      H,T1740 >> 8        ; HL = $1740 + type*4
+                       INC     BC                  ; 
+                       INC     BC                  ; 
+                       LD      A,(BC)              ; get player bullet, coordinate X
+                       AND     $07                 ; 0000_0111 pixel column within the tile
+                       CP      (HL)                ; vs byte0  (max)
+                       RET     NC                  ; outside -> no hit
+                       INC     HL                  ; 2nd byte at T1740
+                       CP      (HL)                ; vs byte1  (min)
+                       RET     C                   ; outside -> no hit
                        JP      L0E70               ; 
 
 ;*****************************************************************************
@@ -3273,30 +3280,30 @@ L0E10:
 ;* Builds the bullet's target box, then scans all 16 alien slots ($4B70).
 ;*****************************************************************************
 L0E39:
-                       INC     BC                  
-                       INC     BC                  
-                       LD      A,(BC)              
-                       LD      D,A                 
-                       INC     BC                  
-                       LD      A,(BC)              
-                       AND     $F8                 
-                       LD      E,A                 
-                       LD      HL,M4B70            ; 
+                       INC     BC                  ; +1
+                       INC     BC                  ; +2 -> player bullet X
+                       LD      A,(BC)              ; get player bullet, coordinate X
+                       LD      D,A                 ; D = bullet X
+                       INC     BC                  ; +3 -> player bullet Y
+                       LD      A,(BC)              ; get player bullet, coordinate Y
+                       AND     $F8                 ; 1111_1000 (snap to character row)
+                       LD      E,A                 ; E = bullet Y (masked)
+                       LD      HL,M4B70            ; alien data structure (16 entries x 4 bytes)
 ;*****************************************************************************
 ;* Scan every alien slot; test the active ones for a hit.
 ;*****************************************************************************
 L0E45:
-                       LD      A,(HL)              
-                       INC     HL                  
-                       INC     HL                  
-                       AND     $08                 
-                       CALL    NZ,L0E58            ; 
-                       INC     HL                  
-                       INC     HL                  
-                       LD      A,$B0               
-                       CP      L                   
-                       JP      NZ,L0E45            ; 
-                       RET                         
+                       LD      A,(HL)              ; alien control state A (+0)
+                       INC     HL                  ; +1
+                       INC     HL                  ; +2 -> alien screen coordinate X
+                       AND     $08                 ; bit3: alien active / on screen ?
+                       CALL    NZ,L0E58            ; if active, do the collision test
+                       INC     HL                  ; +3
+                       INC     HL                  ; +4 -> next alien entry
+                       LD      A,$B0               ; 
+                       CP      L                   ; reached end of structure ($4BB0) ?
+                       JP      NZ,L0E45            ; no ... test all 16 aliens
+                       RET                         ; done, no hit
 
                        .ORG $0E58
 ;*****************************************************************************
@@ -3309,68 +3316,68 @@ L0E45:
 ;* and then routes to `L0EA4` to blow it up.
 ;*****************************************************************************
 L0E58:
-                       LD      A,D                 
-                       CP      (HL)                
-                       RET     C                   
-                       LD      A,(HL)              
-                       ADD     $08                 
-                       CP      D                   
-                       RET     C                   
-                       INC     HL                  
-                       LD      A,(HL)              
-                       DEC     HL                  
-                       ADD     $04                 
-                       CP      E                   
-                       RET     C                   
-                       SUB     $0C                 
-                       CP      E                   
-                       RET     NC                  
-                       JP      L0C00               ; 
+                       LD      A,D                 ; bullet X
+                       CP      (HL)                ; vs alien X
+                       RET     C                   ; bullet left of alien -> miss
+                       LD      A,(HL)              ; alien X
+                       ADD     $08                 ; + 8 (alien width)
+                       CP      D                   ; 
+                       RET     C                   ; bullet right of alien -> miss
+                       INC     HL                  ; +3 -> alien screen coordinate Y
+                       LD      A,(HL)              ; alien Y
+                       DEC     HL                  ; back to +2
+                       ADD     $04                 ; alienY + 4 (lower edge)
+                       CP      E                   ; 
+                       RET     C                   ; bullet below the box -> miss
+                       SUB     $0C                 ; (alienY+4) - $0C = alienY - 8 (upper edge)
+                       CP      E                   ; 
+                       RET     NC                  ; bullet above the box -> miss
+                       JP      L0C00               ; HIT -> pick score/bonus, then destroy
 
                        .ORG $0E70
 ;
 L0E70:
-                       INC     HL                  
-                       LD      A,(BC)              
-                       AND     $F8                 
-                       ADD     A,(HL)              
-                       LD      D,A                 
-                       INC     BC                  
-                       LD      A,(BC)              
-                       AND     $F8                 
-                       LD      E,A                 
+                       INC     HL                  ; -> byte2 at T1740
+                       LD      A,(BC)              ; get player bullet, coordinate X
+                       AND     $F8                 ; 1111_1000 cell-aligned X
+                       ADD     A,(HL)              ; + byte2 (signed: $F8=-8, $FA=-6, $02=+2, ...)
+                       LD      D,A                 ; target X for the alien-table search
+                       INC     BC                  ; 
+                       LD      A,(BC)              ; get player bullet, coordinate Y
+                       AND     $F8                 ; 1111_1000
+                       LD      E,A                 ; save it in E
                        LD      HL,M4B70            ; 
 L0E7E:
-                       LD      A,(HL)              
-                       INC     HL                  
-                       INC     HL                  
-                       AND     $08                 
-                       CALL    NZ,L0E90            ; 
-                       INC     HL                  
-                       INC     HL                  
-                       LD      A,$B0               
-                       CP      L                   
-                       JP      NZ,L0E7E            ; 
-                       RET                         
+                       LD      A,(HL)              ; get alien control state A
+                       INC     HL                  ; 
+                       INC     HL                  ; 
+                       AND     $08                 ; 0000_1000
+                       CALL    NZ,L0E90            ; if bit3 is set
+                       INC     HL                  ; 
+                       INC     HL                  ; 
+                       LD      A,$B0               ; 
+                       CP      L                   ; 
+                       JP      NZ,L0E7E            ; loop over alien data structure.
+                       RET                         ; 
 
                        .ORG $0E90
 ;
 L0E90:
-                       LD      A,(HL)              
-                       ADD     $02                 
-                       CP      D                   
-                       RET     C                   
-                       SUB     $05                 
-                       CP      D                   
-                       RET     NC                  
-                       INC     HL                  
-                       LD      A,(HL)              
-                       DEC     HL                  
-                       AND     $F8                 
-                       CP      E                   
-                       RET     NZ                  
-                       LD      DE,$0C02            ; E reg. set to: 'bonus explosion score 020'.
-                       NOP                         
+                       LD      A,(HL)              ; get alien screen coordinate X
+                       ADD     $02                 ; 
+                       CP      D                   ; with masked player bullet, coordinate X
+                       RET     C                   ; 
+                       SUB     $05                 ; 
+                       CP      D                   ; 
+                       RET     NC                  ; 
+                       INC     HL                  ; 
+                       LD      A,(HL)              ; get alien screen coordinate Y
+                       DEC     HL                  ; move to alien screen coordinate X
+                       AND     $F8                 ; 1111_1000
+                       CP      E                   ; with masked player bullet, coordinate Y
+                       RET     NZ                  ; if not equal
+                       LD      DE,$0C02            ; animation index / bonus explosion score 020.
+                       NOP                         ; 
 ;*****************************************************************************
 ;* Kill with the bonus values.
 ;* `L0EA4` is the common "enemy destroyed" routine:
@@ -3379,59 +3386,59 @@ L0E90:
 ;* (Compare the sibling entry `L0EA0: LD DE,$0C02` used for in formation kills — same mechanism, different score/anim.)
 ;*****************************************************************************
 L0EA4:
-                       DEC     HL                  
-                       DEC     HL                  
-                       DEC     BC                  
-                       DEC     BC                  
-                       DEC     BC                  
-                       LD      A,(BC)              
-                       AND     $F7                 
-                       LD      (BC),A              
+                       DEC     HL                  ; 
+                       DEC     HL                  ; 
+                       DEC     BC                  ; 
+                       DEC     BC                  ; 
+                       DEC     BC                  ; 
+                       LD      A,(BC)              ; get player bullet, control state
+                       AND     $F7                 ; 1111_0111
+                       LD      (BC),A              ; clear bit3
 L0EAD:
-                       LD      A,(HL)              
-                       AND     $F7                 
-                       LD      (HL),A              
-                       LD      A,L                 
-                       ADD     $42                 
-                       LD      L,A                 
-                       LD      B,(HL)              
-                       INC     HL                  
-                       LD      C,(HL)              
-                       LD      HL,M4378            ; 
-                       LD      A,D                 
-                       CP      $10                 
+                       LD      A,(HL)              ; get alien control state A
+                       AND     $F7                 ; 1111_0111
+                       LD      (HL),A              ; clear bit3
+                       LD      A,L                 ; 
+                       ADD     $42                 ; move to MSB screen ram adress alien
+                       LD      L,A                 ; 
+                       LD      B,(HL)              ; get MSB screen ram adress alien
+                       INC     HL                  ; 
+                       LD      C,(HL)              ; get LSB screen ram adress alien
+                       LD      HL,M4378            ; Animation counter for the bonus explosion
+                       LD      A,D                 ; 
+                       CP      $10                 ; 
                        JP      Z,L0EC3             ; 
-                       LD      L,$70               
+                       LD      L,$70               ; 
 L0EC3:
-                       LD      A,(HL)              
+                       LD      A,(HL)              ; get explosion slot0 animation index
+                       AND     A                   ; updates the zero flag
+                       JP      Z,L0ED5             ; if explosion slot0 is free.
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
                        JP      Z,L0ED5             ; 
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       AND     A                   ; updates the zero flag
-                       JP      Z,L0ED5             ; 
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
 L0ED5:
-                       LD      (HL),D              
-                       INC     L                   
-                       LD      (HL),E              ; set $4379 (bonus explosion score)
-                       INC     L                   
-                       LD      (HL),B              
-                       INC     L                   
-                       LD      (HL),C              
-                       LD      L,$64               
-                       LD      (HL),$FF            
-                       LD      L,$BA               
-                       DEC     (HL)                ; decrement AliensLeft
-                       POP     HL                  
-                       POP     HL                  
-                       JP      (HL)                
+                       LD      (HL),D              ; set explosion animation index
+                       INC     L                   ; 
+                       LD      (HL),E              ; set BCD score value
+                       INC     L                   ; 
+                       LD      (HL),B              ; set explosion MSB screen ram
+                       INC     L                   ; 
+                       LD      (HL),C              ; set explosion LSB screen ram
+                       LD      L,$64               ; 
+                       LD      (HL),$FF            ; set flag for: 'Enemy hit detected'
+                       LD      L,$BA               ; AliensLeft
+                       DEC     (HL)                ; decrement it
+                       POP     HL                  ; discard one return address
+                       POP     HL                  ; pop the NEXT return address into HL
+                       JP      (HL)                ; jump to it -> $0DF9, $0027, $2199, $2006
 
                        .ORG $0F00
 ;*****************************************************************************
@@ -3461,37 +3468,37 @@ L0ED5:
 ;*****************************************************************************
 L0F00:
                        LD      HL,ShieldCount      ; 
-                       LD      A,(HL)              ;
-                       CP      $C0                 ;
-                       JP      NC,L0F74            ; 
-                       LD      L,$E2               ;
-                       LD      D,(HL)              ; get $43E2 PlayerShipMSB
-                       INC     L                   ;
-                       LD      E,(HL)              ; get $43E3 PlayerShipLSB
-                       LD      BC,$0202            
-                       CALL    L0F56               ; 'alien with player' collision check
-                       RET     Z                   ; if no collision
-                       NOP                         
-                       NOP                         
-                       LD      HL,M439E            ; Mapped player ship position, left part: ($09 to $C0)
-                       LD      A,(HL)              
-                       SUB     $06                 
-                       LD      B,A                 
-                       INC     L                   
-                       LD      C,(HL)              
-                       LD      HL,M4B70            ; 
+                       LD      A,(HL)              ; 
+                       CP      $C0                 ; 
+                       JP      NC,L0F74            ; ShieldCount >= $C0 -> big-box path (fg all explosion parts)
+                       LD      L,$E2               ; 
+                       LD      D,(HL)              ; D = $43E2 PlayerShipMSB
+                       INC     L                   ; 
+                       LD      E,(HL)              ; E = $43E3 PlayerShipLSB  (DE = ship screen addr)
+                       LD      BC,$0202            ; 2x2 image (B=cols, C=rows)
+                       CALL    L0F56               ; scan ship cells for an alien char
+                       RET     Z                   ; no collision -> done
+                       NOP                         ; (patched-out code)
+                       NOP                         ; 
+                       LD      HL,M439E            ; mapped player ship position, left part ($09..$C0)
+                       LD      A,(HL)              ; 
+                       SUB     $06                 ; 
+                       LD      B,A                 ; B = ship left X bound
+                       INC     L                   ; 
+                       LD      C,(HL)              ; C = $439F ship right X bound
+                       LD      HL,M4B70            ; alien data structure
 L0F23:
-                       LD      A,(HL)              
-                       INC     L                   
-                       INC     L                   
-                       AND     $08                 
-                       CALL    NZ,L0F38            ; 
-                       INC     L                   
-                       INC     L                   
-                       LD      A,$B0               
-                       CP      L                   
+                       LD      A,(HL)              ; alien control state (+0)
+                       INC     L                   ; +1
+                       INC     L                   ; +2 -> alien screen X
+                       AND     $08                 ; 0000_1000 alien active ?
+                       CALL    NZ,L0F38            ; if so, position-match test
+                       INC     L                   ; +3
+                       INC     L                   ; +4 -> next entry
+                       LD      A,$B0               ; 
+                       CP      L                   ; end of 16 aliens ?
                        JP      NZ,L0F23            ; 
-                       RET                         
+                       RET                         ; 
 
                        .ORG $0F38
 ;*****************************************************************************
@@ -3499,23 +3506,23 @@ L0F23:
 ;* B/C = ship X bounds. Alien Y must be in the bottom band ($D2,$E7).
 ;*****************************************************************************
 L0F38:
-                       INC     L                   
-                       LD      A,(HL)              
-                       DEC     L                   
-                       CP      $D2                 
-                       RET     C                   
-                       CP      $E7                 
-                       RET     NC                  
-                       LD      A,(HL)              
-                       CP      C                   
-                       RET     NC                  
-                       CP      B                   
-                       RET     C                   
-                       CALL    L0CC4               ; 
-                       LD      DE,$0D04            
-                       DEC     HL                  
-                       DEC     HL                  
-                       JP      L0EAD               ; 
+                       INC     L                   ; +3 -> alien screen Y
+                       LD      A,(HL)              ; alien Y
+                       DEC     L                   ; back to +2
+                       CP      $D2                 ; 
+                       RET     C                   ; alien above player band -> skip
+                       CP      $E7                 ; 
+                       RET     NC                  ; alien below band -> skip
+                       LD      A,(HL)              ; alien X (+2)
+                       CP      C                   ; 
+                       RET     NC                  ; alien right of ship -> skip
+                       CP      B                   ; 
+                       RET     C                   ; alien left of ship -> skip
+                       CALL    L0CC4               ; register the player collision
+                       LD      DE,$0D04            ; D=$0D anim index, E=$04 score selector
+                       DEC     HL                  ; 
+                       DEC     HL                  ; HL -> alien entry +0
+                       JP      L0EAD               ; destroy this alien
 
                        .ORG $0F56
 ;*****************************************************************************
@@ -3526,78 +3533,78 @@ L0F56:
                        PUSH    BC                  ;
                        PUSH    DE                  ;
 L0F58:
-                       LD      A,(DE)              ; get upper left character of player ship
-                       CP      $60                 ; alien characters ($60 to $BF)
-                       JP      C,L0F63             ; if no collision on left side
+                       LD      A,(DE)              ; character at a ship cell
+                       CP      $60                 ; alien chars are $60..$BF
+                       JP      C,L0F63             ; < $60 : not an alien here
                        CP      $C0                 ;
-                       JP      C,L0CF4             ; if collision on left or right side
+                       JP      C,L0CF4             ; $60..$BF : collision -> handle player hit
 L0F63:
-                       INC     DE                  ; get upper right character of player ship
+                       INC     DE                  ; next cell (right)
                        DEC     B                   ;
-                       JP      NZ,L0F58            ; 
+                       JP      NZ,L0F58            ; across B columns
                        POP     DE                  ;
                        POP     BC                  ;
-                       CALL    RightOneColumn      ; for lower part of player ship
+                       CALL    RightOneColumn      ; step down to the next ship row
                        DEC     C                   ;
-                       JP      NZ,L0F56            ; 
-                       RET                         ;
+                       JP      NZ,L0F56            ; for all C rows
+                       RET                         ; Z set = no collision
 
                        .ORG $0F74
 ;*****************************************************************************
 ;* Big-box variant: used when ShieldCount >= $C0 (4x4 box, wider Y band).
 ;*****************************************************************************
 L0F74:
-                       LD      L,$E2               
-                       LD      D,(HL)              
-                       INC     L                   
-                       LD      E,(HL)              
-                       CALL    RightOneColumn      ; 
-                       DEC     DE                  
-                       LD      BC,$0404            
-                       CALL    L0F56               ; 
-                       RET     Z                   
-                       NOP                         
-                       NOP                         
-                       LD      A,(PlayerShipX)     ; 
-                       SUB     $0E                 
-                       LD      B,A                 
-                       ADD     $2D                 
-                       LD      C,A                 
-                       LD      HL,M4B70            ; 
+                       LD      L,$E2               ; PlayerShipMSB
+                       LD      D,(HL)              ; 
+                       INC     L                   ; PlayerShipLSB
+                       LD      E,(HL)              ; 
+                       CALL    RightOneColumn      ; shift to top-left of the 4x4 box
+                       DEC     DE                  ; 
+                       LD      BC,$0404            ; 4x4 image
+                       CALL    L0F56               ; scan the enlarged ship area
+                       RET     Z                   ; no collision -> done
+                       NOP                         ; (patched-out code)
+                       NOP                         ; 
+                       LD      A,(PlayerShipX)     ; {ram.PlayerShipX}
+                       SUB     $0E                 ; 
+                       LD      B,A                 ; B = ship left X bound
+                       ADD     $2D                 ; 
+                       LD      C,A                 ; C = ship right X bound
+                       LD      HL,M4B70            ; alien data structure
 L0F92:
-                       LD      A,(HL)              
-                       INC     L                   
-                       INC     L                   
-                       AND     $08                 
-                       CALL    NZ,L0FA6            ; 
-                       INC     L                   
-                       INC     L                   
-                       LD      A,$B0               
-                       CP      L                   
+                       LD      A,(HL)              ; alien control state (+0)
+                       INC     L                   ; +1
+                       INC     L                   ; +2 -> alien screen X
+                       AND     $08                 ; 0000_1000 active ?
+                       CALL    NZ,L0FA6            ; position-match test (big box)
+                       INC     L                   ; +3
+                       INC     L                   ; +4 -> next entry
+                       LD      A,$B0               ; 
+                       CP      L                   ; end of 16 aliens ?
                        JP      NZ,L0F92            ; 
-                       RET                         
+                       RET                         ; 
 
                        .ORG $0FA6
 ;*****************************************************************************
 ;* Find the specific colliding alien (big box). Y band ($CA,$EF).
 ;*****************************************************************************
 L0FA6:
-                       INC     L                   
-                       LD      A,(HL)              
-                       DEC     L                   
-                       CP      $CA                 
-                       RET     C                   
-                       CP      $EF                 
-                       RET     NC                  
-                       LD      A,(HL)              
-                       CP      C                   
-                       RET     NC                  
-                       CP      B                   
-                       RET     C                   
-                       LD      DE,$0D02            
-                       DEC     HL                  
-                       DEC     HL                  
-                       JP      L0EAD               ; 
+                       INC     L                   ; +3 -> alien screen Y
+                       LD      A,(HL)              ; alien Y
+                       DEC     L                   ; back to +2
+                       CP      $CA                 ; 
+                       RET     C                   ; above band -> skip
+                       CP      $EF                 ; 
+                       RET     NC                  ; below band -> skip
+                       LD      A,(HL)              ; alien X (+2)
+                       CP      C                   ; 
+                       RET     NC                  ; right of ship -> skip
+                       CP      B                   ; 
+                       RET     C                   ; left of ship -> skip
+                       LD      DE,$0D02            ; D=$0D anim index, E=$02 score selector
+                       DEC     HL                  ; 
+                       DEC     HL                  ; HL -> alien entry +0
+                       JP      L0EAD               ; destroy this alien
 
                        .ORG $0FC0
 ;*****************************************************************************
@@ -3619,38 +3626,40 @@ L0FC0:
                        CALL    L3758               ; advance bonus explosion
                        LD      HL,M437C            ; slot 3 (bonus explosion)
                        JP      L3758               ; advance bonus explosion (tail-call)
+
 ;*****************************************************************************
 ;* Advance and draw one alien-explosion slot.
 ;* HL -> slot record (+0 = counter). Returns immediately if the slot is idle.
 ;*****************************************************************************
 L0FD8:
-                       LD      A,(HL)              
-                       AND     A                   ; updates the zero flag
-                       RET     Z                   
-                       LD      B,(HL)              
-                       DEC     (HL)                
-                       INC     L                   
-                       INC     L                   
-                       LD      D,(HL)              
-                       INC     L                   
-                       LD      E,(HL)              
-                       NOP                         
-                       CALL    LeftOneColumn       ; 
-                       LD      A,B                 
-                       AND     $0E                 
-                       RRCA                        
-                       ADD     $B0                 
-                       LD      L,A                 
-                       LD      H,$17               
-                       LD      L,(HL)              
-                       EX      DE,HL               
+                       LD      A,(HL)              ; animation counter (+0)
+                       AND     A                   ; set zero flag
+                       RET     Z                   ; slot free -> nothing to do
+                       LD      B,(HL)              ; B = current counter value
+                       DEC     (HL)                ; advance the animation (count down)
+                       INC     L                   ; +1 (unused)
+                       INC     L                   ; +2
+                       LD      D,(HL)              ; D = screen-RAM MSB
+                       INC     L                   ; +3
+                       LD      E,(HL)              ; E = screen-RAM LSB (DE = draw position)
+                       NOP                         ; 
+                       CALL    LeftOneColumn       ; nudge the draw origin
+                       LD      A,B                 ; counter value
+                       AND     $0E                 ; 0000_1110 keep even bits (0,2,4,...,14)
+                       RRCA                        ; /2 -> frame index 0..7
+                       ADD     $B0                 ; -> LSB of T17B0 sequence table
+                       LD      L,A                 ; 
+                       LD      H,$17               ; HL = $17B0 + frame index
+                       LD      L,(HL)              ; L = LSB of the explosion frame image
+                       EX      DE,HL               ; HL = frame image ($17xx), DE = screen pos
                        LD      BC,$FFDF            ; Screen offset constant -33 right one column (-1), up one row (-32)
-                       JP      Draw3x2             ; 
+                       JP      Draw3x2             ; draw the 3x2 explosion frame
 
+                       .ORG $1000
 ;*****************************************************************************
 ; ic47
 ;*****************************************************************************
-                       .ORG $1000
+
 ; Pointer table to alien movement list (T1700):
 ; Value * 2 ==> LSB of T1700
 ; This is the default movement pattern for the alien formation:
@@ -3661,8 +3670,10 @@ T1000:
                        .DB $01, $01, $01, $01, $02, $02, $02, $02
                        .DB $02, $02, $02, $02, $01, $01, $01, $01
                        .DB $00
+; not used
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF
+
 ; Closed loop pattern table part 1:
 ; Used for single or multiple aliens, depending on the game round.
 ; Pattern 1
@@ -4025,7 +4036,7 @@ L14E0:
 
                        .ORG $1500
 ; Copied inside $4B70-$4BAF.
-; Init values for the alien control states A and B.
+; Init values for the alien control states A and B for 16 aliens.
 T1500:
                        .DB $08, $6C, $09, $60
                        .DB $08, $6C, $09, $60
@@ -4036,7 +4047,7 @@ T1500:
                        .DB $08, $6C, $09, $60
                        .DB $09, $60, $09, $60
 ; Init values for 16 aliens.
-; Pointer to alien movement pattern table.
+; Pointer to alien movement pattern table. T1000
 T1520:
                        .MSFIRST
                        .DW T1000
@@ -4435,31 +4446,44 @@ T1700:
 ;          back to the alien's anchor X, so the correct alien object is found and killed.
 ; Byte 3 — `$FF`, unused padding.
 T1740:
-                       .DB $08, $00, $00, $FF, $01, $00, $F8, $FF, $08, $01, $02, $FF, $04, $00, $FA, $FF ;
-                       .DB $08, $01, $04, $FF, $08, $00, $FC, $FF, $08, $05, $06, $FF, $08, $00, $FE, $FF ;
+                       .DB $08, $00, $00, $FF ; type 0 for foreground tile $60
+                       .DB $01, $00, $F8, $FF ; type 1 for foreground tile $61
+                       .DB $08, $01, $02, $FF ; type 2 for foreground tile $62
+                       .DB $04, $00, $FA, $FF ; type 3 for foreground tile $63
+                       .DB $08, $01, $04, $FF ; type 4 for foreground tile $64
+                       .DB $08, $00, $FC, $FF ; type 5 for foreground tile $65
+                       .DB $08, $05, $06, $FF ; type 6 for foreground tile $66
+                       .DB $08, $00, $FE, $FF ; type 7 for foreground tile $67
 
 ; Parity table and initial number of aliens/birds for levels:
 ; odd, odd, even (P), even (P), odd, odd, odd, odd
 ; used with $43B8 LevelAndRound.
 T1760:
                        .DB $10, $10, $88, $88, $10, $10, $10, $10 ;
-;
+;not used
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF ;
 
 T1770:
                        .DB $EC, $FC, $FD, $F4, $ED, $30, $40, $F5, $EE, $31, $41, $F6, $EF, $FF, $FE, $F7 ; Object 1770 Regular ship, large shields
+T1780:
                        .DB $E8, $F8, $F9, $F0, $E9, $30, $40, $F1, $EA, $31, $41, $F2, $EB, $FB, $FA, $F3 ; Object 1780 Regular ship, small shields
+T1790:
                        .DB $E8, $F8, $F9, $F0, $E9, $E4, $E6, $F1, $EA, $E5, $E7, $F2, $EB, $FB, $FA, $F3 ; Object 1790 Green ship, large shields
+T17A0:
                        .DB $00, $00, $00, $00, $00, $E4, $E6, $00, $00, $E5, $E7, $00, $00, $00, $00, $00 ; Object 17A0 Green ship, no shields
 
-;
+T17B0:
                        .DB $F0, $CA, $C4, $BE, $B8, $BE, $B8, $BE ; LSB's of the Alien explosion frame sequence (#5,#4,#3,#2,#1,#2,#1,#2) why wrong order?
-;
+
+T17B8:
                        .DB $C8, $D8, $C9, $D9, $CA, $DA ; Object 17B8 3x2 Alien explosion frame #1
+T17BE:
                        .DB $CB, $DB, $CC, $DC, $CD, $DD ; Object 17BE 3x2 Alien explosion frame #2
+T17C4:
                        .DB $C0, $C1, $C1, $C2, $00, $C0 ; Object 17C4 3x2 Alien explosion frame #3
+T17CA:
                        .DB $00, $00, $00, $C3, $00, $00 ; Object 17CA 3x2 Alien explosion frame #4
-;
+
 T17D0:
                        .DB $C4, $D4, $C5, $D5, $C3, $C3 ; Object 17D0 3x2 Bonus explosion left part
 T17D6:
@@ -4478,12 +4502,12 @@ T17D6:
 ;* result: early exit skips the divide-by-2 when 1-coin mode is selected.
 ;* Callers
 ;* 1. Attract main loop (`$0039`) — after `AND A`, non-zero credits -> `PromptForStartGame`, else splash/demo.
-;* 2. `PromptForStartGame` (`$0295`) — `CP $02`: if credits ≥ 2, also print “1 OR 2 PLAYERS”.
+;* 2. `PromptForStartGame` (`$0295`) — `CP $02`: if credits ≥ 2, also print "1 OR 2 PLAYERS".
 ;* Both callers re-test **A** (`AND A` / `CP $02`); they do not rely on Z from the early `RET Z`.
 ;* Pairing with `DecrementCoins`
 ;* `$02D8`–`$02E2` uses the same DIP bit: if bit4 is set, the coin cost is doubled (1P costs 2 coins, 2P costs 4).
 ;* That matches `CoinChecking` reporting `CoinCount / 2` as credits.
-;* In short: `$17E0` is “how many games can we start right now?”,
+;* In short: `$17E0` is "how many games can we start right now?",
 ;* not a coin-slot reader — slot counting is in `WaitVBlankCoin`.
 ;*****************************************************************************
 CoinChecking:
@@ -4504,6 +4528,7 @@ FourByFourEmpty:
 ;*****************************************************************************
 ; ic48
 ;*****************************************************************************
+
 ; Screen ram adresses and static texts using setA
 T1800:
                        .DB $43, $20
@@ -4659,36 +4684,42 @@ T1B40:
                        .ORG $1B48
 ; Replacement tiles
 T1B48:
-                       .DB $6C, $6D, $6E, $6F, $64, $65, $66, $67, $63, $FF
-                       .DB $63, $61, $67, $FF
-                       .DB $67, $65, $6B, $FF
-                       .DB $6B, $69, $6F, $FF
-                       .DB $6F, $6D
+                       .DB $6C, $6D, $6E, $6F
+                       .DB $64, $65, $66, $67
+; Right-half belt-parts table.
+T1B50:
+                       .DB $63, $FF, $63, $61
+                       .DB $67, $FF, $67, $65
+                       .DB $6B, $FF, $6B, $69
+                       .DB $6F, $FF, $6F, $6D
 
-;characters used for explosions using setB
+; Characters used for explosions using setB
 T1B60:
                        .DB $80, $83, $83, $85, $81, $8C, $8C, $86, $81, $8C, $8C, $86, $82, $84, $84, $87
+T1B70:
                        .DB $00, $89, $89, $00, $88, $8D, $8D, $8B, $88, $8D, $8D, $8B, $00, $8A, $8A, $00
+T1B80:
                        .DB $00, $00, $00, $00, $00, $80, $85, $00, $00, $82, $87, $00, $00, $00, $00, $00
 
-;adress table for instumentation of explosion
+; Adress table for instumentation of explosion
 T1B90:
-                       .DB $1B, $80
-                       .DB $1B, $70
-                       .DB $1B, $60
-                       .DB $1B, $70
-                       .DB $17, $F0                         ;for deletion
-                       .DB $17, $F0                         ;
-                       .DB $17, $F0                         ;
-                       .DB $17, $F0                         ;
+                       .MSFIRST
+                       .DW T1B80
+                       .DW T1B70
+                       .DW T1B60
+                       .DW T1B70
+                       .DW FourByFourEmpty
+                       .DW FourByFourEmpty
+                       .DW FourByFourEmpty
+                       .DW FourByFourEmpty
 
-;characters using setA: '1 OR 2 PLAYERS BUTTON'
+; Characters using setA: '1 OR 2 PLAYERS BUTTON'
 T1BA0:
                        .DB $43, $2C                         ; screen ram position
                        .DB $00, $00, $00, $00, $00, $00, $00, $21, $00, $0F, $12, $00, $22, $10
                        .DB $0C, $01, $19, $05, $12, $13, $00, $02, $15, $14, $14, $0F, $0E, $00, $00, $00
 
-;characters using setB for animation of the mothership's
+; Characters using setB for animation of the mothership's
 ;.....antenna animation and the
 ;...........alien pilot animation
 T1BC0:
@@ -4709,7 +4740,7 @@ T1BC0:
                        .DB $41, $51, $76, $7E   ; frame 7
                        .DB $42, $52, $77, $7F   ;
 
-;part of the starfield (without planets) using setB
+; Part of the starfield (without planets) using setB
 ; This is a 20x9 tile image used to erase the mothership
 T1C00:
                        .DB $00, $01, $00, $06, $00, $02, $03, $04, $00, $01, $00, $08, $00, $02, $03, $04, $00, $00, $07, $00
@@ -4746,22 +4777,24 @@ T1D00:
                        .DB $05, $0C, $06, $00, $04, $06, $07, $0E, $0F, $09, $00, $40, $41, $42, $43, $00, $07, $03, $0A, $08, $0D, $00, $09, $0B, $0C, $0A
 
                        .ORG $1DF0
-; This is a simple protection against piracy.
+;*****************************************************************************
+;* Protection against piracy:
+;*****************************************************************************
 L1DF0:
                        LD      A,(ForegroundScreen+$31D) ; 'A' from 'AMSTAR ..' copyright text
-                       SUB     $01                 
-                       RET     Z                   
+                       SUB     $01                 ; 
+                       RET     Z                   ; 
 ; crash the program and reset.
                        LD      (CoinCount),A       ;
-                       NOP                         
-                       NOP                         
-                       NOP                         
-                       NOP                         
-                       NOP                         
-                       NOP                         
-                       NOP                         
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
 ;
-;data for the 8 (2x2) planets / galaxies from setB
+; Data for the 8 (2x2) planets / galaxies from setB
 T1E00:
                        .DB $20, $30, $21, $31
                        .DB $22, $32, $23, $33
@@ -4771,7 +4804,7 @@ T1E00:
                        .DB $2A, $3A, $2B, $3B
                        .DB $2C, $3C, $2D, $3D
                        .DB $2E, $3E, $2F, $3F
-;MSB's of screen ram for planets / galaxies
+; MSB's of screen ram for planets / galaxies
 T1E20:
                        .DB $49, $48, $4A, $4B
                        .DB $4A, $49, $4A, $49
@@ -4791,7 +4824,7 @@ T1E40:
                        .DB $00, $60, $00, $A0
                        .DB $E0, $20, $80, $00
                        .DB $C0, $80, $A0, $E0
-;LSB's of screen ram for planets / galaxies
+; LSB's of screen ram for planets / galaxies
 T1E60:
                        .DB $00, $04, $08, $0C
                        .DB $10, $14, $18, $1C
@@ -4801,7 +4834,7 @@ T1E60:
                        .DB $04, $1C, $08, $14
                        .DB $00, $10, $04, $14
                        .DB $08, $18, $0C, $1C
-;data for the 16 (1x1) small galaxies from setB
+; data for the 16 (1x1) small galaxies from setB
 T1E80:
                        .DB $10, $11, $12, $13
                        .DB $14, $15, $16, $17
@@ -4835,7 +4868,7 @@ T1EC0:
 ;*****************************************************************************
 ;* Copyright-notice integrity check:
 ;* It runs only in attract mode, as the tail of the intro bird animation.
-;* It sums the 26 characters of the on-screen line “` AMSTAR ELECTRONICS CORP. `”,
+;* It sums the 26 characters of the on-screen line "` AMSTAR ELECTRONICS CORP. `",
 ;* adds a tuned constant, and adds the result into `HiScorehigh`.
 ;* With unmodified ROM the total wraps to exactly `$00`, so the hi-score is left untouched.
 ;* Change the copyright text and the hi-score gets corrupted.
@@ -4900,8 +4933,8 @@ T1F00:
 ;*****************************************************************************
 L2000:
                        CALL    PlayerUpdate        ; Updates the player ship, player bullet and the shield.
-                       CALL    L0DF0               ; alien bullet to player, collission detection ?
-                       CALL    L24A0               ; 
+                       CALL    L0DF0               ; Player bullet to alien, collission detection.
+                       CALL    L24A0               ; Mother-ship hook
                        LD      HL,M435F            ; 8 bit counter for alien movement
                        LD      A,(HL)              ; get value
                        AND     $03                 ; mask out 0000_0011 for count 0 to 3
@@ -4909,26 +4942,26 @@ L2000:
                        INC     (HL)                ; increment alien movement counter
                        LD      A,(AliensLeft)      ; 
                        AND     A                   ; updates the zero flag
-                       JP      Z,L21BA             ; if no AliensLeft
-                       CP      $05                 ;
-                       JP      NC,L2130            ; if <= 5 left
+                       JP      Z,L21BA             ; if no AliensLeft -> Mothership-wave dispatcher (and end-of-wave handling)
+                       CP      $05                 ; 
+                       JP      NC,L2130            ; if >= 5 left
                        DEC     L                   ; $435E
                        LD      A,B                 ; get masked counter
                        AND     A                   ; updates the zero flag
                        JP      NZ,L2025            ; if masked counter <> 0
-                       LD      (HL),$FF            ; set all bits at $435E
+                       LD      (HL),$FF            ; set $435E Flag for: 'AliensLeft < 5'
 L2025:
                        LD      A,(HL)              ; get $435E
                        AND     A                   ; updates the zero flag
                        JP      Z,L2130             ; if $435E = 0
-                       JP      L2146               ; 
+                       JP      L2146               ; Game's per frame level dispatcher (even/odd phase)
 
                        .ORG $2030
 ;
 L2030:
-                       AND     $03                 
-                       CP      $01                 
-                       LD      DE,$1B50            
+                       AND     $03                 ; 0000_0011
+                       CP      $01                 ; 
+                       LD      DE,$1B50            ; right-half belt-parts table
                        JP      L23AC               ; 
 
                        .ORG $2040
@@ -4936,42 +4969,42 @@ L2030:
 ;* Add 1x1 small galaxies to background.
 ;*****************************************************************************
 AddGalaxiesToBackground:
-                       LD      HL,M43AF            ; 
+                       LD      HL,M43AF            ; $43AF = next-galaxy trigger (CounterB9 value)
                        LD      A,(CounterB9)       ; 
-                       LD      C,A                 ;
-                       CP      (HL)                ;
-                       RET     NZ                  ;
-                       LD      A,(HL)              ;
-                       INC     L                   ;
-                       SUB     (HL)                ;
-                       DEC     L                   ;
-                       LD      (HL),A              ;
-                       INC     L                   ;
-                       INC     L                   ;
-                       INC     (HL)                ;
-                       LD      A,(HL)              ;
+                       LD      C,A                 ; 
+                       CP      (HL)                ; 
+                       RET     NZ                  ; 
+                       LD      A,(HL)              ; 
+                       INC     L                   ; -> $43B0
+                       SUB     (HL)                ; - $43B0
+                       DEC     L                   ; 
+                       LD      (HL),A              ; $43AF -= $43B0  (schedule next galaxy)
+                       INC     L                   ; 
+                       INC     L                   ; -> $43B1
+                       INC     (HL)                ; $43B1++
+                       LD      A,(HL)              ; A = $43B1  (galaxy position index)
                        LD      HL,T1E80            ; data for the 16 (1x1) small galaxies from setB
-                       AND     $1F                 ;
-                       ADD     A,L                 ;
-                       LD      L,A                 ;
-                       LD      B,(HL)              ;
-                       ADD     $20                 ;
-                       LD      L,A                 ;
-                       LD      D,(HL)              ;
-                       ADD     $20                 ;
-                       LD      L,A                 ;
-                       LD      E,(HL)              ;
-                       LD      A,C                 ;
-                       RRCA                        ;
-                       RRCA                        ;
-                       RRCA                        ;
-                       AND     $1F                 ;
-                       ADD     A,E                 ;
-                       INC     A                   ;
-                       LD      E,A                 ;
-                       LD      A,B                 ;
-                       LD      (DE),A              ;
-                       RET                         ;
+                       AND     $1F                 ; 0001_1111
+                       ADD     A,L                 ; 
+                       LD      L,A                 ; 
+                       LD      B,(HL)              ; 
+                       ADD     $20                 ; 
+                       LD      L,A                 ; 
+                       LD      D,(HL)              ; 
+                       ADD     $20                 ; 
+                       LD      L,A                 ; 
+                       LD      E,(HL)              ; 
+                       LD      A,C                 ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       AND     $1F                 ; 0001_1111
+                       ADD     A,E                 ; 
+                       INC     A                   ; 
+                       LD      E,A                 ; 
+                       LD      A,B                 ; 
+                       LD      (DE),A              ; 
+                       RET                         ; 
 
                        .ORG $2070
 ;*****************************************************************************
@@ -4980,14 +5013,14 @@ AddGalaxiesToBackground:
 ;* The ship visibly bursts into scattering particles that then thin out and vanish.
 ;*****************************************************************************
 L2070:
-                       LD      A,E                 
-                       SUB     $0A                 
-                       ADD     $C0                 
-                       LD      C,A                 
-                       LD      A,D                 
-                       ADC     $00                 
-                       LD      B,A                 
-                       LD      A,(HL)              
+                       LD      A,E                 ; 
+                       SUB     $0A                 ; 
+                       ADD     $C0                 ; 
+                       LD      C,A                 ; 
+                       LD      A,D                 ; 
+                       ADC     $00                 ; 
+                       LD      B,A                 ; 
+                       LD      A,(HL)              ; 
                        LD      DE,T2800            ; get the foreground tiles of the player ship particles explosion
                        LD      HL,T2900            ; and get the control data for it
                        JP      L2085               ; 
@@ -4995,32 +5028,32 @@ L2070:
                        .ORG $2085
 ;
 L2085:
-                       SUB     $20                 
+                       SUB     $20                 ; 
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       NOP                         
-                       AND     $E0                 
-                       LD      L,A                 
-                       LD      A,$E0               
-                       SUB     L                   
-                       LD      L,A                 
+                       NOP                         ; 
+                       AND     $E0                 ; 1110_0000
+                       LD      L,A                 ; 
+                       LD      A,$E0               ; 
+                       SUB     L                   ; 
+                       LD      L,A                 ; 
 L2091:
-                       LD      A,$3F               
-                       SUB     C                   
-                       LD      A,$43               
-                       SBC     B                   
+                       LD      A,$3F               ; 
+                       SUB     C                   ; 
+                       LD      A,$43               ; 
+                       SBC     B                   ; 
                        JP      NC,L20B0            ; 
-                       INC     HL                  
-                       INC     HL                  
-                       LD      A,E                 
-                       ADD     $10                 
-                       LD      E,A                 
-                       LD      A,C                 
-                       SUB     $20                 
-                       LD      C,A                 
-                       LD      A,B                 
-                       SBC     $00                 
-                       LD      B,A                 
+                       INC     HL                  ; 
+                       INC     HL                  ; 
+                       LD      A,E                 ; 
+                       ADD     $10                 ; 
+                       LD      E,A                 ; 
+                       LD      A,C                 ; 
+                       SUB     $20                 ; 
+                       LD      C,A                 ; 
+                       LD      A,B                 ; 
+                       SBC     $00                 ; 
+                       LD      B,A                 ; 
                        JP      L2091               ; 
 
                        .ORG $20B0
@@ -5028,45 +5061,45 @@ L2091:
 ;* Player ship particles explosion.
 ;*****************************************************************************
 L20B0:
-                       PUSH    BC                  
+                       PUSH    BC                  ; 
 L20B1:
-                       LD      A,(HL)              
-                       EX      (SP),HL             
-                       LD      B,$08               
+                       LD      A,(HL)              ; T2900 control byte (8 flags)
+                       EX      (SP),HL             ; HL = screen pointer
+                       LD      B,$08               ; 
 L20B5:
-                       LD      (HL),$00            
-                       RRCA                        
-                       JP      NC,L20BF            ; 
-                       EX      DE,HL               
-                       LD      C,(HL)              
+                       LD      (HL),$00            ; erase this cell
+                       RRCA                        ; next control bit -> carry
+                       JP      NC,L20BF            ; bit clear -> leave erased
+                       EX      DE,HL               ; 
+                       LD      C,(HL)              ; C = tile from T2800
                        EX      DE,HL               ; get data from $2800
-                       LD      (HL),C              
+                       LD      (HL),C              ; draw the particle
 L20BF:
-                       INC     HL                  
-                       INC     DE                  
-                       DEC     B                   
-                       JP      NZ,L20B5            ; 
-                       EX      (SP),HL             
-                       INC     HL                  
-                       LD      A,L                 
-                       RRCA                        
+                       INC     HL                  ; next screen cell
+                       INC     DE                  ; next T2800 entry
+                       DEC     B                   ; 
+                       JP      NZ,L20B5            ; 8 cells per byte
+                       EX      (SP),HL             ; 
+                       INC     HL                  ; 
+                       LD      A,L                 ; 
+                       RRCA                        ; 
                        JP      C,L20B1             ; 
-                       LD      A,L                 
-                       AND     $1F                 
+                       LD      A,L                 ; 
+                       AND     $1F                 ; 0001_1111
                        JP      Z,L20E1             ; 
-                       EX      (SP),HL             
-                       LD      A,L                 
-                       SUB     $30                 
-                       LD      L,A                 
-                       LD      A,H                 
-                       SBC     $00                 
-                       LD      H,A                 
-                       EX      (SP),HL             
-                       CP      $3F                 
+                       EX      (SP),HL             ; 
+                       LD      A,L                 ; 
+                       SUB     $30                 ; 
+                       LD      L,A                 ; 
+                       LD      A,H                 ; 
+                       SBC     $00                 ; 
+                       LD      H,A                 ; 
+                       EX      (SP),HL             ; 
+                       CP      $3F                 ; 
                        JP      NZ,L20B1            ; 
 L20E1:
-                       POP     BC                  
-                       RET                         
+                       POP     BC                  ; 
+                       RET                         ; 
 
                        .ORG $20E8
 ;*****************************************************************************
@@ -5115,15 +5148,15 @@ L20E8:
 ;*****************************************************************************
 L211C:
                        LD      HL,CounterB9        ; 
-                       LD      A,(HL)              
-                       CP      $10                 
-                       RET     C                   
-                       CP      $30                 
-                       RET     NC                  
-                       LD      A,$10               
-                       LD      (HL),A              
+                       LD      A,(HL)              ; 
+                       CP      $10                 ; 
+                       RET     C                   ; < $10: leave alone
+                       CP      $30                 ; 
+                       RET     NC                  ; >= $30: leave alone
+                       LD      A,$10               ; 
+                       LD      (HL),A              ; pin CounterB9 = $10
                        LD      (scrollRegister),A  ; 58xx scroll register
-                       RET                         
+                       RET                         ; 
 
                        .ORG $2130
 ;*****************************************************************************
@@ -5217,7 +5250,7 @@ L21A5:
 ;* Mothership-wave dispatcher (and end-of-wave handling).
 ;*****************************************************************************
 L21BA:
-                       LD      A,B                 ;
+                       LD      A,B                 ; 
                        RRCA                        ; test phase bit 0
                        JP      NC,L2204            ; even phase: end-of-wave countdown (L2204)
                        CALL    L0C40               ; EnemyBulletUpdate
@@ -5225,10 +5258,10 @@ L21BA:
                        CALL    L24C4               ; mothership housekeeping
                        LD      A,(LevelAndRound)   ; 
                        AND     $0F                 ; mask out 0000_1111
-                       CP      $0B                 ;
-                       JP      C,L2204             ; if < game level B
-                       LD      A,$10               ; 16 aliens for a new wave
-                       LD      (AliensLeft),A      ; 
+                       CP      $0B                 ; 
+                       JP      C,L2204             ; if < level $B: fall through to wave end
+                       LD      A,$10               ; else 16 aliens ...
+                       LD      (AliensLeft),A      ; ... for a new wave
                        JP      L0526               ; init alien data
 
                        .ORG $21DC
@@ -5247,27 +5280,27 @@ L21BA:
 ;* `T233A` is therefore "the shape every 8 frames", and the low bits provide the in-between wing flapping.
 ;*****************************************************************************
 DrawIntroBirdAnimationFrame:
-                       LD      A,(HL)              ; {ram.M4399} Actual index for slow print at intro splash (starts with $300)
-                       NOP                         ;
-                       LD      B,A                 ; save it
-                       LD      HL,B4B73            ; used as temp memory
+                       LD      A,(HL)              ; Actual index for slow print at intro splash (starts with $300)
+                       NOP                         ; 
+                       LD      B,A                 ; keep a copy
+                       LD      HL,B4B73            ; used as temp memory for animation phase
                        AND     $07                 ; mask out 0000_0111 in order to count from 0 to 7
-                       LD      (HL),A              ; save it
-                       DEC     L                   ;
+                       LD      (HL),A              ; animation sub-phase
+                       DEC     L                   ; 
                        LD      (HL),$EF            ; use $4B72 for LSB of screen ram
-                       DEC     L                   ;
+                       DEC     L                   ; 
                        LD      (HL),$49            ; use $4B71 for MSB of screen ram
                        DEC     L                   ; $4B70 (bird0 index character block shape)
-                       LD      A,B                 ; restore $4399
-                       AND     $F8                 ; mask out 1111_1000
-                       RRCA                        ; Divide by 8 ..
-                       RRCA                        ; ..
-                       RRCA                        ; ..
-                       ADD     T233A & $FF         ; LSB of T233A
-                       LD      E,A                 ;
-                       LD      D,T233A >> 8        ; MSB of T233A
-                       LD      A,(DE)              ; get data starting at T233A for animation frame index
-                       LD      (HL),A              ; write to $4B70
+                       LD      A,B                 ; restore $4399 timer
+                       AND     $F8                 ; drop low 3 bits ...
+                       RRCA                        ; ... and >> 3
+                       RRCA                        ; 
+                       RRCA                        ; A = M4399 >> 3   (the T233A index)
+                       ADD     T233A & $FF         ; + LSB of T233A
+                       LD      E,A                 ; 
+                       LD      D,T233A >> 8        ; DE = T233A + (M4399 >> 3)
+                       LD      A,(DE)              ; A = shape index from the script
+                       LD      (HL),A              ; -> $4B70 (bird object shape index)
                        CALL    DrawBirdObject      ; draw the bird at intro
                        JP      L1EE0               ; Copyright-notice integrity check
 
@@ -5275,24 +5308,24 @@ DrawIntroBirdAnimationFrame:
 ;
 L2204:
                        LD      HL,M43B6            ; End-of-wave countdown timer
-                       DEC     (HL)                ;
-                       LD      A,(HL)              ;
-                       CP      $A0                 ;
-                       RET     NC                  ;
-                       LD      L,$A4               ;
+                       DEC     (HL)                ; 
+                       LD      A,(HL)              ; 
+                       CP      $A0                 ; (~96 frames later)
+                       RET     NC                  ; keep waiting
+                       LD      L,$A4               ; GameState
                        LD      (HL),$02            ; set GameState to: 'initialization of game and level data'
-                       LD      L,$A6               ;
+                       LD      L,$A6               ; ShieldCount
                        LD      (HL),$00            ; clear ShieldCount
-                       LD      L,$B8               ;
+                       LD      L,$B8               ; LevelAndRound
                        INC     (HL)                ; increment LevelAndRound
-                       LD      A,(HL)              ;
+                       LD      A,(HL)              ; 
                        AND     $0E                 ; mask out 0000_1110
                        RRCA                        ; divide by 2
                        ADD     T1760 & $FF         ; add to base of table T1760
-                       LD      E,A                 ;
-                       LD      D,T1760 >> 8        ;
-                       INC     L                   ;
-                       INC     L                   ;
+                       LD      E,A                 ; 
+                       LD      D,T1760 >> 8        ; 
+                       INC     L                   ; 
+                       INC     L                   ; AliensLeft
                        LD      A,(DE)              ; get value from table T1760
                        AND     A                   ; updates the flags
                        JP      P,L222A             ; if not positive.
@@ -5317,8 +5350,8 @@ L2230:
                        NOP                         ;
                        RRCA                        ;
                        AND     $3F                 ; mask out 0011_1111
-                       CP      $0D                 ;
-                       JP      Z,L2292             ; 
+                       CP      $0D                 ; 
+                       JP      Z,L2292             ; spiral step
                        LD      B,$1F               ; The asterisk character
                        JP      C,L2260             ; 
                        LD      B,$00               ; The space character
@@ -5339,10 +5372,10 @@ L2260:
                        RRCA                        ;
                        RRCA                        ;
                        LD      D,A                 ;
-                       AND     $1F                 ;
+                       AND     $1F                 ; 0001_1111
                        LD      E,A                 ;
                        LD      A,D                 ;
-                       AND     $E0                 ;
+                       AND     $E0                 ; 1110_0000
                        ADD     $B0                 ;
                        LD      L,A                 ;
                        LD      A,E                 ;
@@ -5378,6 +5411,7 @@ L227B:
                        DEC     E                   ; All columns done?
                        JP      NZ,L227A            ; no ... do all columns
                        RET                         ; Done
+
 ;*****************************************************************************
 ;* Spiral step
 ;*****************************************************************************
@@ -5395,18 +5429,18 @@ L2292:
                        LD      DE,$4B3F            ; End of background screen memory
                        LD      B,$47               ;
 L22A3:
-                       LD      A,(HL)              ;
-                       LD      (DE),A              ;
-                       INC     L                   ;
-                       DEC     DE                  ;
-                       LD      A,(HL)              ;
-                       LD      (DE),A              ;
-                       INC     L                   ;
-                       DEC     DE                  ;
-                       LD      A,B                 ;
-                       CP      D                   ;
+                       LD      A,(HL)              ; 
+                       LD      (DE),A              ; write star tile
+                       INC     L                   ; advance in page $1C (wraps $FF->$00)
+                       DEC     DE                  ; 
+                       LD      A,(HL)              ; 
+                       LD      (DE),A              ; 
+                       INC     L                   ; 
+                       DEC     DE                  ; 
+                       LD      A,B                 ; 
+                       CP      D                   ; stop when DE drops below $4800
                        JP      NZ,L22A3            ; 
-                       JP      L22E0               ; 
+                       JP      L22E0               ; then set scroll/CounterB9
 
                        .ORG $22B4
 ;*****************************************************************************
@@ -5416,13 +5450,13 @@ L22A3:
 L22B4:
                        CALL    StarsScrollDown     ; 
                        LD      HL,CounterB4        ; 
-                       DEC     (HL)                ;
-                       LD      A,(HL)              ;
-                       CP      $28                 ;
-                       JP      NZ,L0848            ; 
-                       LD      L,$67               ;
-                       LD      (HL),$FF            ;
-                       RET                         ;
+                       DEC     (HL)                ; decrement CounterB4
+                       LD      A,(HL)              ; get it
+                       CP      $28                 ; 
+                       JP      NZ,L0848            ; if counter value not reached
+                       LD      L,$67               ; 
+                       LD      (HL),$FF            ; set flag for 'Mothership partially faded in'.
+                       RET                         ; 
 
                        .ORG $22CA
 ;*****************************************************************************
@@ -5436,7 +5470,7 @@ L22CA:
                        JP      NZ,L0834            ; Stars scrolling down and 'aliens fade in'
                        LD      (HL),$30            ;
                        LD      L,$67               ;
-                       LD      (HL),$FF            ;
+                       LD      (HL),$FF            ; set flag for 'Mothership partially faded in'
                        LD      L,$BC               ;
                        LD      (HL),$3F            ;
                        RET                         ;
@@ -5480,33 +5514,33 @@ L22F0:
 ;* the row of `$60`–`$6F` tiles cycles through their link graphics in lock-step — which the eye reads as the belt rotating/conveying.
 ;*****************************************************************************
 L22FA:
-                       LD      HL,BackgroundScreen+$2AA
-                       LD      B,$12               
-                       LD      A,(BackgroundScreen+$8A)
-                       LD      C,A                 
+                       LD      HL,BackgroundScreen+$2AA     ; $4AAA = far end of the belt column
+                       LD      B,$12               ; 18 belt tiles in the column
+                       LD      A,(BackgroundScreen+$8A)     ; $488A = seed tile feeding the belt
+                       LD      C,A                 ; C = "incoming" pattern
 L2303:
-                       LD      A,C                 
-                       AND     $03                 
-                       RLCA                        ; Multiply by 4 ..
-                       RLCA                        ; ..
-                       LD      D,A                 
-                       LD      C,(HL)              
-                       LD      A,C                 
-                       AND     $0C                 
-                       RRCA                        
-                       RRCA                        
-                       OR      D                   
-                       OR      $60                 
-                       LD      (HL),A              
-                       LD      A,L                 
-                       SUB     $20                 
-                       LD      L,A                 
+                       LD      A,C                 ; A = incoming/previous tile
+                       AND     $03                 ; its low 2 bits (lower belt-link half)
+                       RLCA                        ; << 2
+                       RLCA                        ; 
+                       LD      D,A                 ; D = (prev & 3) << 2  -> new HIGH half
+                       LD      C,(HL)              ; C = current tile (kept as 'previous' for next loop)
+                       LD      A,C                 ; 
+                       AND     $0C                 ; current tile's high 2 bits (upper half)
+                       RRCA                        ; >> 2
+                       RRCA                        ; -> new LOW half
+                       OR      D                   ; combine: (prev_low<<2) | (cur_high>>2)
+                       OR      $60                 ; force into belt tile range $60-$6F
+                       LD      (HL),A              ; write the rotated belt tile back
+                       LD      A,L                 ; 
+                       SUB     $20                 ; step one tile up the column
+                       LD      L,A                 ; 
                        JP      NC,L231B            ; 
-                       DEC     H                   
+                       DEC     H                   ; 
 L231B:
-                       DEC     B                   
-                       JP      NZ,L2303            ; 
-                       RET                         
+                       DEC     B                   ; 
+                       JP      NZ,L2303            ; repeat for all 18 tiles
+                       RET                         ; 
 
                        .ORG $2322
 ;*****************************************************************************
@@ -5526,6 +5560,7 @@ L2322:
                        LD      DE,BackgroundScreen+$1A6; at the middle of the mothership
                        LD      BC,$0402            ; images are 2x4
                        JP      DrawImageCbyB       ; 
+
 ; Intro-splash bird animation script table:
 ; A list of bird shape indices that, played in order, make the attract-mode bird grow
 ; from a twinkling star into a full flapping Phoenix and then shrink back.
@@ -5539,44 +5574,62 @@ L2322:
 ; turning the abstract growth/flap/shrink choreography into concrete shape indices that `DrawBirdObject` renders.
 ; The trailing `FF` signals the end of the script (it's the sentinel the surrounding intro logic uses to know the sequence is finished).
 T233A:
-                       .DB $01, $02, $03, $04, $05, $06, $07, $0A, $07, $0A, $07, $0A, $07, $0A, $07, $0A
-                       .DB $09, $08, $04, $03, $02, $01, $FF
+                       .DB $01, $02, $03, $04                              ; star, small, medium, big, cluster (a twinkle appears and swells)
+                       .DB $05, $06, $07,                                  ; growing-up body stages (it sprouts into a bird)
+                       .DB $0A, $07, $0A, $07, $0A, $07, $0A, $07, $0A     ; wings down, wings up, ... (the bird flaps in place)
+                       .DB $09, $08, $04, $03, $02, $01                    ; shrinking stages (the bird collapses back to a star)
+                       .DB $FF                                             ; end-of-sequence marker
 
 ;*****************************************************************************
 ;* Mother-ship collision routine:
 ;* During the mother-ship levels (game level ≥ 8), `L2000` -> `L24A0` calls `L2351`.
 ;* It looks up the tile at the (scroll-adjusted) bullet position 
 ;* and explicitly tests for the `$4C`–`$4F` group.
+;* `L2351` is called with `DE` = the bullet's control-state record and
+;* `HL` = its live screen-address pair. Both are the player bullet (object 1 of the player grid).
+;* `$43E6`/`$43E7` is the current position written each frame
+;* by `GetScreenRamAddress` (the listing labels it `AbovePlayerBulletMSB`).
+;* Two details make this work:
+;* - `ADD $08` on the MSB converts the bullet's foreground address (`$40`–`$43`)
+;*   into the matching background address (`$48`–`$4B`), because the mother ship is drawn in the background plane.
+;* - Scroll compensation adjusts only the low 5 bits (the vertical row on the rotated screen)
+;*   by `CounterB9 >> 3`, preserving the horizontal field — the same technique as `L242C`,
+;*   but adding the offset here rather than subtracting.
+;* From there the tile decides the outcome: `$4C`–`$4F` erodes the dome
+;* (`L237B`, decrementing the tile and cascading into `$4F` at the edge),
+;* `$60`–`$6F` hits the purple conveyor belt (`L2398`),
+;* which in turn can reach the alien pilot and trigger `L23C0` -> game state 6.
 ;*****************************************************************************
 L2351:
-                       LD      A,(DE)              
-                       AND     $08                 
-                       RET     Z                   
-                       LD      A,(HL)              
-                       INC     L                   
-                       LD      L,(HL)              
-                       ADD     $08                 
-                       LD      H,A                 
+                       LD      A,(DE)              ; 
+                       AND     $08                 ; 0000_1000
+                       RET     Z                   ; no bullet in flight
+                       LD      A,(HL)              ; screen MSB
+                       INC     L                   ; 
+                       LD      L,(HL)              ; screen LSB
+                       ADD     $08                 ; $4x -> $4x+8 : foreground to background plane
+                       LD      H,A                 ; 
                        LD      A,(CounterB9)       ; 
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       ADD     A,L                 
-                       AND     $1F                 
-                       LD      B,A                 
-                       LD      A,L                 
-                       AND     $E0                 
-                       OR      B                   
-                       LD      L,A                 
-                       LD      A,(HL)              
-                       LD      B,A                 
-                       AND     $FC                 
-                       CP      $4C                 
-                       JP      Z,L237B             ; 
-                       AND     $F0                 
-                       CP      $60                 
-                       JP      Z,L2398             ; 
-                       RET                         
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; scroll offset in character rows
+                       ADD     A,L                 ; 
+                       AND     $1F                 ; 0001_1111 wrap within the row field
+                       LD      B,A                 ; 
+                       LD      A,L                 ; 
+                       AND     $E0                 ; 1110_0000 keep the horizontal field
+                       OR      B                   ; 
+                       LD      L,A                 ; 
+                       LD      A,(HL)              ; background tile under the bullet
+                       LD      B,A                 ; 
+                       AND     $FC                 ; mask low 2 bits -> $4C/$4D/$4E/$4F all -> $4C
+                       CP      $4C                 ; 
+                       JP      Z,L237B             ; hit the mother-ship SHIELD
+                       AND     $F0                 ; 1111_0000
+                       CP      $60                 ; tile in $60..$6F ?
+                       JP      Z,L2398             ; -> conveyor-belt hit handler
+                       RET                         ; anything else -> no hit
+
 ;*****************************************************************************
 ;* The mothership's protective shield was hit by a player bullet.
 ;* Shield erosion.
@@ -5590,52 +5643,52 @@ L2351:
 ;*    i.e. the next layer of hull becomes the new erodible shield edge.
 ;*****************************************************************************
 L237B:
-                       LD      A,(DE)              
-                       AND     $F7                 
-                       LD      (DE),A              
-                       LD      A,$FF               
-                       LD      (M4366),A           ; 
-                       LD      A,B                 
-                       DEC     A                   
-                       LD      (HL),A              
-                       CP      $4B                 
-                       RET     NZ                  
-                       LD      (HL),$00            
-                       DEC     L                   
-                       LD      A,(HL)              
-                       CP      $5E                 
-                       RET     NZ                  
-                       LD      (HL),$4F            
-                       RET                         
+                       LD      A,(DE)              ; 
+                       AND     $F7                 ; clear bit3 -> consume/deactivate the bullet
+                       LD      (DE),A              ; 
+                       LD      A,$FF               ; set flag for
+                       LD      (M4366),A           ; set 'Mothership hit detected' flag (hit sound)
+                       LD      A,B                 ; the tile that was hit
+                       DEC     A                   ; $4F->$4E->$4D->$4C->$4B  (one gradient step)
+                       LD      (HL),A              ; write the eroded tile back to the screen
+                       CP      $4B                 ; 
+                       RET     NZ                  ; not fully eroded yet -> done
+                       LD      (HL),$00            ; reached $4B -> remove this shield piece
+                       DEC     L                   ; 
+                       LD      A,(HL)              ; the tile behind it
+                       CP      $5E                 ; solid mother-ship body?
+                       RET     NZ                  ; 
+                       LD      (HL),$4F            ; convert body $5E -> $4F (expose next shield layer)
+                       RET                         ; 
 
                        .ORG $2398
 ;*****************************************************************************
 ;* Belt-hit handler:
 ;*****************************************************************************
 L2398:
-                       LD      A,(DE)              
-                       AND     $F7                 
-                       LD      (DE),A              
-                       INC     E                   
-                       INC     E                   
-                       LD      A,(DE)              
-                       AND     $04                 
-                       LD      A,B                 
-                       JP      NZ,L2030            ; 
-                       AND     $0C                 
-                       CP      $04                 
-                       LD      DE,$1B40            
+                       LD      A,(DE)              ; 
+                       AND     $F7                 ; consume/deactivate the bullet
+                       LD      (DE),A              ; 
+                       INC     E                   ; 
+                       INC     E                   ; DE -> PlayerBulletX
+                       LD      A,(DE)              ; 
+                       AND     $04                 ; which half of the belt (by bullet X)
+                       LD      A,B                 ; B = the belt tile that was hit
+                       JP      NZ,L2030            ; right half -> use table $1B50
+                       AND     $0C                 ; 0000_1100
+                       CP      $04                 ; 
+                       LD      DE,$1B40            ; left half -> use table $1B40 belt-damage remap table
 L23AC:
-                       JP      Z,L23C0             ; 
-                       LD      A,B                 
-                       AND     $0F                 
-                       ADD     A,E                 
-                       LD      E,A                 
-                       LD      A,(DE)              
-                       LD      (HL),A              
-                       LD      A,$FF               
-                       LD      (M4366),A           ; 
-                       RET                         
+                       JP      Z,L23C0             ; segment in front of the pilot -> destroy ship
+                       LD      A,B                 ; the purple conveyor belt was hit
+                       AND     $0F                 ; low nibble 0..F
+                       ADD     A,E                 ; DE = $1B40 + (tile & $0F)
+                       LD      E,A                 ; index into belt-parts table (T1B40/T1B48/T1B50)
+                       LD      A,(DE)              ; 
+                       LD      (HL),A              ; replace tile with a 'damaged' belt tile
+                       LD      A,$FF               ; set flag for
+                       LD      (M4366),A           ; 'Mothership hit detected' (hit sound)
+                       RET                         ; 
 
                        .ORG $23C0
 ;*****************************************************************************
@@ -5645,18 +5698,18 @@ L23AC:
 ;* is a pilot tile (`$70`-range) and, if so, destroys the mother ship.
 ;*****************************************************************************
 L23C0:
-                       DEC     L                   
-                       LD      A,(HL)              
-                       AND     $F0                 
-                       CP      $70                 
-                       RET     NZ                  
+                       DEC     L                   ; 
+                       LD      A,(HL)              ; 
+                       AND     $F0                 ; 1111_0000
+                       CP      $70                 ; background tiles code of alien pilot
+                       RET     NZ                  ; not the pilot -> nothing
                        LD      HL,GameState        ; Next interval game state ...
                        LD      (HL),$06            ; ... is 6 (mother ship partikel explosion)
-                       INC     L                   
-                       LD      (HL),$60            
-                       LD      L,$63               
-                       LD      (HL),$FF            
-                       RET                         
+                       INC     L                   ; CounterA5
+                       LD      (HL),$60            ; set counter value for
+                       LD      L,$63               ; ParticleExplosion
+                       LD      (HL),$FF            ; Set flag for: 'particle explosion start'
+                       RET                         ; 
 
                        .ORG $23D6
 ;*****************************************************************************
@@ -5759,9 +5812,9 @@ L244C:
                        RET     NZ                  ;
                        DEC     L                   ;
                        LD      (HL),$02            ;
-                       LD      L,$B8               ;
+                       LD      L,$B8               ; LevelAndRound
                        LD      A,(HL)              ;
-                       AND     $F0                 ;
+                       AND     $F0                 ; 1111_0000
                        ADD     $10                 ; go to next round and ..
                        LD      (HL),A              ; .. store at LevelAndRound $43B8
                        LD      L,$BA               ;
@@ -5829,7 +5882,14 @@ L2495:
                        RET     Z                   ; 
                        ADD     A,A                 ; 
                        RET                         ; 
-;
+
+;*****************************************************************************
+;* Mother-ship hook in the main gameplay loop:
+;* On the mother-ship level it does two things per frame:
+;* Tests the player's bullet against the mother-ship structure (hull dome or conveyor belt) and,
+;* every fourth frame, gives the mother ship a chance to drop a bomb aimed at the player.
+;* On every other level it returns immediately.
+;*****************************************************************************
 L24A0:
                        LD      A,(LevelAndRound)   ; 
                        AND     $0F                 ; mask out 0000_1111
@@ -5837,12 +5897,12 @@ L24A0:
                        RET     C                   ; return if game level < 8
                        LD      DE,PlayerBulletState
                        LD      HL,AbovePlayerBulletMSB
-                       CALL    L2351               ; 
+                       CALL    L2351               ; bullet vs. mother ship
                        LD      A,(Counter9A+$1)    ; 
                        AND     $03                 ; mask out 0000_0011
                        CP      $03                 ;
-                       RET     NZ                  ; return if <> 3
-                       JP      L24F2               ; 
+                       RET     NZ                  ; only on 1 frame in 4
+                       JP      L24F2               ; mother ship returns fire
 
                        .ORG $24C4
 ;*****************************************************************************
@@ -5855,24 +5915,24 @@ L24C4:
                        LD      A,(LevelAndRound)   ; 
                        AND     $0F                 ; mask out 0000_1111
                        CP      $08                 ;
-                       JP      C,L06F0             ; update scroll register and fill background if game level < 8
+                       JP      C,L06F0             ; level < 8: just scroll stars
                        CALL    L24E0               ; 
-                       LD      HL,M43AA            ; 
-                       INC     (HL)                ;
+                       LD      HL,M43AA            ; Mothership-wave frame counter
+                       INC     (HL)                ; mother-ship frame counter
                        LD      A,(HL)              ;
                        AND     $03                 ; mask out 0000_0011
-                       JP      Z,L22FA             ; if $43AA <> 3
+                       JP      Z,L22FA             ; every 4th frame: rotate the conveyor belt
                        JP      L2322               ; Animation of the mothership's antenna and the alien pilot
 
                        .ORG $24E0
 ;
 L24E0:
-                       LD      A,(M43AA)           ; 
-                       AND     $0F                 
-                       RET     NZ                  
+                       LD      A,(M43AA)           ; Mothership-wave frame counter
+                       AND     $0F                 ; 0000_1111
+                       RET     NZ                  ; 
                        LD      A,(CounterB9)       ; 
-                       CP      $A0                 
-                       RET     C                   
+                       CP      $A0                 ; 
+                       RET     C                   ; gate stars-scroll
                        JP      StarsScrollDown     ; 
 
                        .ORG $24F2
@@ -5888,31 +5948,31 @@ L24E0:
 ;*****************************************************************************
 L24F2:
                        CALL    GetRandomNumber     ; 
-                       ADD     $60                 
-                       NOP                         
-                       LD      B,A                 
-                       LD      HL,Counter9A+$1    ; 
-                       AND     $0E                 
-                       AND     (HL)                
-                       RET     NZ                  
-                       LD      A,(M439E)           ; 
-                       CP      B                   
-                       RET     NC                  
-                       LD      A,(M439F)           ; 
-                       CP      B                   
-                       RET     C                   
-                       LD      A,B                 
-                       SUB     $04                 
-                       LD      B,A                 
+                       ADD     $60                 ; candidate X in the playfield
+                       NOP                         ; 
+                       LD      B,A                 ; B = random target X ($60 + rnd)
+                       LD      HL,Counter9A+$1    ;; 
+                       AND     $0E                 ; 0000_1110
+                       AND     (HL)                ; 
+                       RET     NZ                  ; probabilistic gate: usually skip
+                       LD      A,(M439E)           ; player ship left bound
+                       CP      B                   ; 
+                       RET     NC                  ; target left of player -> skip
+                       LD      A,(M439F)           ; player ship right bound
+                       CP      B                   ; 
+                       RET     C                   ; target right of player -> skip
+                       LD      A,B                 ; target aligns with the player
+                       SUB     $04                 ; bomb X
+                       LD      B,A                 ; B = bomb X
                        LD      A,(CounterB9)       ; 
-                       CPL                         
-                       INC     A                   
-                       AND     $F8                 
-                       ADD     $48                 
-                       LD      C,A                 
-                       PUSH    HL                  
-                       PUSH    HL                  
-                       JP      L25B7               ; 
+                       CPL                         ; 
+                       INC     A                   ; = -CounterB9
+                       AND     $F8                 ; 1111_1000 -CounterB9, character aligned
+                       ADD     $48                 ; bomb Y, follows the scroll
+                       LD      C,A                 ; C = bomb Y (from scroll position)
+                       PUSH    HL                  ; 
+                       PUSH    HL                  ; two dummy stack frames for L25B7's POPs
+                       JP      L25B7               ; fire the enemy bullet
 
                        .ORG $2520
 ;*****************************************************************************
@@ -5933,7 +5993,7 @@ L2520:
                        LD      B,$90               ;
                        JP      C,L253D             ; 
                        CP      $90                 ;
-                       JP      NC,L253D            ; 
+                       JP      NC,L253D            ; if >= $90
                        LD      B,A                 ;
 L253D:
                        XOR     A                   ; A=0
@@ -5952,13 +6012,13 @@ L253D:
                        .ORG $2552
 ;
 L2552:
-                       LD      L,$A4               ;
-                       LD      (HL),$07            
-                       INC     L                   
-                       LD      (HL),$40            
-                       LD      L,$6B               
-                       LD      (HL),$FF            
-                       RET                         
+                       LD      L,$A4               ; GameState
+                       LD      (HL),$07            ; set to 'mother ship score display'
+                       INC     L                   ; CounterA5
+                       LD      (HL),$40            ; set it
+                       LD      L,$6B               ; $436B
+                       LD      (HL),$FF            ; set flag for 'mother ship score display'
+                       RET                         ; 
 
                        .ORG $2560
 ;*****************************************************************************
@@ -5971,41 +6031,41 @@ L2552:
 ;* (scaled by the attack escalation counter `$4357`), then scans the group with `L2596`.
 ;*****************************************************************************
 L2560:
-                       LD      HL,Counter93            ; 
-                       LD      A,(HL)              
-                       AND     $01                 
+                       LD      HL,Counter93        ; 
+                       LD      A,(HL)              ; 
+                       AND     $01                 ; 0000_0001 alternate between the two halves...
                        RLCA                        ; Multiply by 32 ..
                        RLCA                        ; ..
                        RLCA                        ; ..
                        RLCA                        ; ..
-                       RLCA                        ; ..
-                       ADD     $70                 
-                       LD      L,A                 
-                       LD      H,$4B               
-                       LD      E,$08               
-                       LD      A,(M4357)           ; 
+                       RLCA                        ; ...(0 or $20)
+                       ADD     $70                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$4B               ; HL = $4B70 or $4B90 (8-alien group)
+                       LD      E,$08               ; 8 aliens to scan
+                       LD      A,(M4357)           ; attack escalation counter
                        RLCA                        ; Multiply by 8 ..
                        RLCA                        ; ..
                        RLCA                        ; ..
-                       NOP                         
-                       ADD     $AD                 
-                       LD      D,A                 
+                       NOP                         ; 
+                       ADD     $AD                 ; 
+                       LD      D,A                 ; D = Y depth threshold
                        LD      A,(M439F)           ; 
-                       ADD     $03                 
-                       LD      C,A                 
+                       ADD     $03                 ; 
+                       LD      C,A                 ; C = player right bound + 3
                        LD      A,(M439E)           ; 
-                       SUB     $0A                 
-                       LD      B,A                 
+                       SUB     $0A                 ; 
+                       LD      B,A                 ; B = player left bound - $0A
 L2588:
-                       PUSH    HL                  
-                       CALL    L2596               ; 
-                       POP     HL                  
-                       LD      A,L                 
-                       ADD     $04                 
-                       LD      L,A                 
-                       DEC     E                   
-                       JP      NZ,L2588            ; 
-                       RET                         
+                       PUSH    HL                  ; 
+                       CALL    L2596               ; test this alien
+                       POP     HL                  ; 
+                       LD      A,L                 ; 
+                       ADD     $04                 ; 
+                       LD      L,A                 ; next alien entry
+                       DEC     E                   ; 
+                       JP      NZ,L2588            ; loop 8 aliens
+                       RET                         ; 
 ;*****************************************************************************
 ;* Per-alien attack candidacy test. HL -> alien entry.
 ;* Must be active, valid shape, horizontally over the player, and deep enough.
@@ -6013,35 +6073,35 @@ L2588:
 ;* and deep enough on screen. When one qualifies it loads its position into `B`/`C` and drops into `L25B7`.
 ;*****************************************************************************
 L2596:
-                       LD      A,(HL)              
-                       AND     $08                 
-                       RET     Z                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       CP      $08                 
-                       RET     Z                   
-                       CP      $88                 
-                       RET     NC                  
-                       INC     L                   
-                       LD      A,(HL)              
-                       CP      B                   
-                       RET     C                   
-                       CP      C                   
-                       RET     NC                  
-                       INC     L                   
-                       LD      A,(HL)              
-                       CP      D                   
-                       RET     NC                  
-                       CP      $80                 
-                       RET     C                   
-                       NOP                         
-                       NOP                         
-                       NOP                         
-                       NOP                         
-                       NOP                         
-                       LD      C,A                 
-                       DEC     L                   
-                       LD      B,(HL)              
+                       LD      A,(HL)              ; control state (+0)
+                       AND     $08                 ; 0000_1000
+                       RET     Z                   ; not active -> skip
+                       INC     L                   ; +1 shape/char
+                       LD      A,(HL)              ; 
+                       CP      $08                 ; 
+                       RET     Z                   ; skip specific value
+                       CP      $88                 ; 
+                       RET     NC                  ; shape out of range -> skip
+                       INC     L                   ; +2 screen X
+                       LD      A,(HL)              ; 
+                       CP      B                   ; 
+                       RET     C                   ; left of player -> skip
+                       CP      C                   ; 
+                       RET     NC                  ; right of player -> skip
+                       INC     L                   ; +3 screen Y
+                       LD      A,(HL)              ; 
+                       CP      D                   ; 
+                       RET     NC                  ; not deep enough -> skip
+                       CP      $80                 ; 
+                       RET     C                   ; too high -> skip
+                       NOP                         ; (patched-out code)
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       LD      C,A                 ; C = alien Y
+                       DEC     L                   ; back to +2
+                       LD      B,(HL)              ; B = alien X  (fall into spawner)
 ;*****************************************************************************
 ;* Fire the enemy bullet (shared by alien and mother-ship attacks):
 ;* Finds a free enemy-bullet slot (max 3/4/5 depending on round) and,
@@ -6050,27 +6110,27 @@ L2596:
 ;*****************************************************************************
 L25B7:
                        LD      A,(LevelAndRound)   ; 
-                       LD      D,$03               ;
+                       LD      D,$03               ; base: 3 bullets
                        CP      $10                 ; 0001_0000
-                       JP      C,L25CA             ; if game round < 1
-                       LD      D,$04               ;
+                       JP      C,L25CA             ; round 0
+                       LD      D,$04               ; round 1: 4 bullets
                        CP      $20                 ; 0010_0000
                        JP      C,L25CA             ; if game round < 2
-                       LD      D,$05               ;
+                       LD      D,$05               ; round >=2: 5 bullets
 L25CA:
                        LD      HL,AlienBullet0State
 L25CD:
-                       LD      A,(HL)              ;
-                       AND     $08                 ; mask out 0000_1000
-                       JP      Z,L25E0             ; 
-                       LD      A,L                 
-                       ADD     $04                 
-                       LD      L,A                 
-                       DEC     D                   
-                       JP      NZ,L25CD            ; 
-                       POP     HL                  
-                       POP     HL                  
-                       RET                         
+                       LD      A,(HL)              ; 
+                       AND     $08                 ; 0000_1000 slot in use?
+                       JP      Z,L25E0             ; found a free slot -> spawn
+                       LD      A,L                 ; 
+                       ADD     $04                 ; 
+                       LD      L,A                 ; next slot
+                       DEC     D                   ; 
+                       JP      NZ,L25CD            ; try D slots
+                       POP     HL                  ; 
+                       POP     HL                  ; discard the two pushed frames
+                       RET                         ; no free slot -> abort
 
                        .ORG $25E0
 ;*****************************************************************************
@@ -6081,34 +6141,50 @@ L25CD:
 ;* regardless of whether a bullet was actually fired.
 ;*****************************************************************************
 L25E0:
-                       LD      A,B                 
-                       ADD     $04                 
-                       LD      B,A                 
-                       LD      A,C                 
-                       ADD     $0C                 
-                       LD      C,A                 
-                       LD      (HL),$08            
-                       INC     L                   
-                       LD      A,B                 
-                       RRCA                        
-                       AND     $03                 
-                       LD      D,A                 
-                       LD      A,C                 
-                       AND     $04                 
-                       ADD     A,D                 
-                       ADD     $58                 
-                       LD      (HL),A              
-                       INC     L                   
-                       LD      (HL),B              
-                       INC     L                   
-                       LD      (HL),C              
-                       POP     HL                  
-                       POP     HL                  
-                       RET                         
+                       LD      A,B                 ; 
+                       ADD     $04                 ; 
+                       LD      B,A                 ; adjust bullet X
+                       LD      A,C                 ; 
+                       ADD     $0C                 ; 
+                       LD      C,A                 ; adjust bullet Y
+                       LD      (HL),$08            ; state = active (bit3)
+                       INC     L                   ; 
+                       LD      A,B                 ; 
+                       RRCA                        ; 
+                       AND     $03                 ; 0000_0011
+                       LD      D,A                 ; 
+                       LD      A,C                 ; 
+                       AND     $04                 ; 0000_0100
+                       ADD     A,D                 ; 
+                       ADD     $58                 ; 
+                       LD      (HL),A              ; bullet character/type ($58 + variant)
+                       INC     L                   ; 
+                       LD      (HL),B              ; bullet X
+                       INC     L                   ; 
+                       LD      (HL),C              ; bullet Y
+                       POP     HL                  ; 
+                       POP     HL                  ; discard the two pushed frames
+                       RET                         ; 
 
                        .ORG $2600
 ;*****************************************************************************
 ;* Birds vertical movement update (with 58xx scroll register).
+;* The descent threshold:
+;* B4BD1 = (M436F & $1E) + 2·( 2·(8 − BirdsLeft) + Counter9A )
+;* The kill count `8 − BirdsLeft` enters with weight 4 and `Counter9A` with weight 2,
+;* plus a random even offset up to `$1E`. As birds are shot down, the threshold climbs,
+;* so the formation is allowed to descend further before turning — the wave gets more aggressive.
+;* `B4BD1` is consumed on the very next frame by `L2600`.
+;* `B4BD1 ≥ B4BD3` takes the descend path (`CounterB9 − step`, table `$3ED0` indexed by `B4BD5`).
+;* Call chain:
+;* L2600  (bird vertical movement, every frame)
+;*   └─ $263F  Counter9A+1 bit0
+;*        ├─ 0 -> L26D0     recompute B4BD6 / B4BD7 from live bird slots
+;*        └─ 1 -> L2668     recompute B4BD5 (descent speed, clamped via $3EE0)
+;*                 └─ L26AA  tick B4BD3
+;*                      └─ on expiry -> L2476   re-arm B4BD3 and B4BD1
+;* The two halves alternate on odd/even frames,
+;* so the spread values `L2476` consumes are always from the previous frame.
 ;*****************************************************************************
 L2600:
                        NOP                         ; Old command removed or space for a future replace patch
@@ -6117,167 +6193,171 @@ L2600:
                        NOP                         ; ..
                        NOP                         ; ..
                        LD      A,(CounterB9)       ; 
-                       CPL                         
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       AND     $1F                 
-                       LD      HL,M4BD2            ; 
-                       LD      (HL),A              
-                       INC     L                   
-                       LD      A,(M4BD1)           ; 
-                       CP      (HL)                
-                       JP      C,L2650             ; 
-                       LD      A,(M4BD5)           ; 
-                       LD      D,A                 
-                       AND     $03                 
-                       LD      E,A                 
+                       CPL                         ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; >> 3
+                       AND     $1F                 ; 0001_1111 0..31
+                       LD      HL,B4BD2            ; vertical scroll phase of the bird formation (the master index)
+                       LD      (HL),A              ; B4BD2 = (~CounterB9 >> 3) & $1F
+                       INC     L                   ; -> B4BD3
+                       LD      A,(B4BD1)           ; descent turnaround threshold (max depth)
+                       CP      (HL)                ; vs $4BD2 (scroll phase)
+                       JP      C,L2650             ; phase passed threshold -> reverse
+                       LD      A,(B4BD5)           ; D = descent-step value
+                       LD      D,A                 ; 
+                       AND     $03                 ; E = B4BD5 & 3   -> sub-phase (column 0..3)
+                       LD      E,A                 ; 
                        LD      A,(Counter9A+$1)    ; 
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       AND     $0C                 
-                       ADD     A,E                 
-                       ADD     $D0                 
-                       LD      L,A                 
-                       LD      H,$3E               
-                       LD      A,D                 
-                       RRCA                        
-                       RRCA                        
-                       AND     $07                 
-                       ADD     A,(HL)              
-                       LD      D,A                 
+                       AND     $0C                 ; 0000_1100 animation-frame row -> 0,4,8,12
+                       ADD     A,E                 ; + sub-phase
+                       ADD     $D0                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$3E               ; HL = $3ED0 + row + column
+                       LD      A,D                 ; 
+                       RRCA                        ; 
+                       RRCA                        ; B4BD5 >> 2 -> coarse speed
+                       AND     $07                 ; 0000_0111 coarse speed 0..7
+                       ADD     A,(HL)              ; + 0/1 dither bit from table
+                       LD      D,A                 ; total vertical step this frame
                        LD      A,(CounterB9)       ; 
-                       SUB     D                   
+                       SUB     D                   ; 
 L2639:
                        LD      (CounterB9),A       ; 
-                       LD      (scrollRegister),A  ; 58xx scroll register
+                       LD      (scrollRegister),A  ; $5800 vertical scroll register
                        LD      A,(Counter9A+$1)    ; 
-                       RRCA                        
+                       RRCA                        ; 
                        JP      NC,L26D0            ; 
                        CALL    L2668               ; 
                        JP      L26AA               ; 
 
                        .ORG $2650
-;
+;*****************************************************************************
+;* `L2650` takes the ascend path (`CounterB9 + step`, indexed via `B4BD4`).
+;* Since `L2476` writes both sides of that comparison,
+;* it is what decides how long the formation dives before pulling back up.
+;*****************************************************************************
 L2650:
-                       INC     L                   ;
+                       INC     L                   ; 
                        LD      A,(Counter9A+$1)    ; 
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       AND     $0C                 
-                       ADD     A,(HL)              
-                       ADD     $D0                 
-                       LD      L,A                 
-                       LD      H,$3E               
+                       AND     $0C                 ; 0000_1100
+                       ADD     A,(HL)              ; 
+                       ADD     $D0                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$3E               ; 
                        LD      A,(CounterB9)       ; 
-                       ADD     A,(HL)              
+                       ADD     A,(HL)              ; 
                        JP      L2639               ; 
                        JP      NC,L26AE            ; 
 
 ;
 L2668:
-                       LD      A,(M436E)           ; 
-                       NOP                         
-                       LD      B,A                 
+                       LD      A,(M436E)           ; base for descent-step calc (-> B4BD5)
+                       NOP                         ; 
+                       LD      B,A                 ; 
                        LD      A,(Counter9A)       ; 
-                       CP      $18                 
+                       CP      $18                 ; 
                        JP      C,L2676             ; 
-                       INC     B                   
+                       INC     B                   ; 
 L2676:
-                       CP      $10                 
+                       CP      $10                 ; 
                        JP      C,L267C             ; 
-                       INC     B                   
+                       INC     B                   ; 
 L267C:
                        LD      A,(AliensLeft)      ; 
-                       CP      $03                 
-                       JP      NC,L2685            ; 
-                       INC     B                   
+                       CP      $03                 ; 
+                       JP      NC,L2685            ; if >= $03
+                       INC     B                   ; 
 L2685:
-                       LD      A,(M4BD6)           ; 
-                       ADD     $E0                 
-                       LD      L,A                 
-                       LD      H,$3E               
-                       LD      A,B                 
-                       CP      (HL)                
-                       JP      C,L2693             ; 
-                       LD      A,(HL)              
+                       LD      A,(B4BD6)           ; 
+                       ADD     $E0                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$3E               ; HL = $3EE0 + B4BD6
+                       LD      A,B                 ; B = candidate step (from M436E, wave timer, AliensLeft)
+                       CP      (HL)                ; 
+                       JP      C,L2693             ; keep B if B < limit
+                       LD      A,(HL)              ; else clamp to table limit
 L2693:
-                       LD      D,A                 
+                       LD      D,A                 ; 
                        LD      A,(BirdsLeft)       ; 
-                       CP      $04                 
-                       JP      NC,L269D            ; 
-                       INC     D                   
+                       CP      $04                 ; 
+                       JP      NC,L269D            ; if >= $04
+                       INC     D                   ; 
 L269D:
-                       CP      $02                 
-                       JP      NC,L26A3            ; 
-                       INC     D                   
+                       CP      $02                 ; 
+                       JP      NC,L26A3            ; if >= $02
+                       INC     D                   ; 
 L26A3:
-                       LD      A,D                 
-                       LD      (M4BD5),A           ; 
-                       RET                         
+                       LD      A,D                 ; D further nudged by BirdsLeft, then:
+                       LD      (B4BD5),A           ; descent step / speed value
+                       RET                         ; 
 
                        .ORG $26AA
 L26AA:
-                       LD      HL,M4BD3            ; countdown timer between bird attacks ("bird extended storage")
-                       LD      A,(HL)              
+                       LD      HL,B4BD3            ; countdown timer between bird attacks ("bird extended storage")
+                       LD      A,(HL)              ; 
 L26AE:
-                       DEC     (HL)                
+                       DEC     (HL)                ; tick
                        AND     A                   ; updates the zero flag
-                       RET     NZ                  
-                       INC     (HL)                
-                       LD      L,$D6               
-                       LD      A,(HL)              
-                       CP      $16                 
-                       RET     NC                  
-                       CP      $08                 
-                       RET     C                   
-                       INC     L                   
-                       SUB     (HL)                
+                       RET     NZ                  ; not yet
+                       INC     (HL)                ; 
+                       LD      L,$D6               ; $4BD6
+                       LD      A,(HL)              ; 
+                       CP      $16                 ; 
+                       RET     NC                  ; 
+                       CP      $08                 ; 
+                       RET     C                   ; 
+                       INC     L                   ; 
+                       SUB     (HL)                ; 
                        RLCA                        ; Multiply by 2
-                       LD      B,A                 
+                       LD      B,A                 ; 
 ; Attack sub-pattern selector
-                       LD      A,(M436F)           ; 
-                       AND     $03                 
-                       LD      L,$D4               
-                       LD      (HL),A              
-                       CPL                         
-                       AND     $03                 
-                       INC     A                   
-                       LD      C,A                 
+                       LD      A,(M436F)           ; Per-wave random variation seed (keeps successive waves from being identical)
+                       AND     $03                 ; 0000_0011
+                       LD      L,$D4               ; B4BD4 attack sub-pattern selector (0–3)
+                       LD      (HL),A              ; set one of four bird attack variants
+                       CPL                         ; 
+                       AND     $03                 ; 0000_0011
+                       INC     A                   ; 
+                       LD      C,A                 ; 
                        JP      L2476               ; 
 
                        .ORG $26D0
 ;
 L26D0:
                        LD      HL,M4BA8            ; 
-                       LD      BC,$0800            
-                       LD      DE,$8000            
+                       LD      BC,$0800            ; 
+                       LD      DE,$8000            ; 
 L26D9:
-                       LD      A,(HL)              
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
                        JP      Z,L26E5             ; 
-                       LD      A,D                 
+                       LD      A,D                 ; 
                        RLCA                        ; Multiply by 2
                        JP      NC,L26E4            ; 
-                       LD      D,C                 
+                       LD      D,C                 ; 
 L26E4:
-                       LD      E,C                 
+                       LD      E,C                 ; 
 L26E5:
-                       INC     C                   
-                       LD      A,L                 
-                       SUB     B                   
-                       LD      L,A                 
-                       CP      $68                 
+                       INC     C                   ; 
+                       LD      A,L                 ; 
+                       SUB     B                   ; 
+                       LD      L,A                 ; 
+                       CP      $68                 ; 
                        JP      NZ,L26D9            ; 
-                       LD      A,(M4BD2)           ; 
-                       ADD     A,D                 
-                       ADD     A,E                 
-                       AND     $1F                 
-                       LD      (M4BD6),A           ; 
-                       LD      A,E                 
-                       SUB     D                   
-                       LD      (M4BD7),A           ; 
-                       RET                         
+                       LD      A,(B4BD2)           ; vertical scroll phase of the bird formation (the master index)
+                       ADD     A,D                 ; + first active row
+                       ADD     A,E                 ; + last active row
+                       AND     $1F                 ; 0001_1111
+                       LD      (B4BD6),A           ; combined scroll-phase + active-bird center index (0–31)
+                       LD      A,E                 ; 
+                       SUB     D                   ; 
+                       LD      (B4BD7),A           ; vertical spread of the active birds (computed, effectively unused)
+                       RET                         ; 
 
                        .ORG $2700
 ;*****************************************************************************
@@ -6296,7 +6376,7 @@ UpdateScoresAndSound:
                        ADD     $83                 ;
                        LD      L,A                 ;
                        LD      A,$FF               ;
-                       LD      (M4397),A           ; 
+                       LD      (M4397),A           ; assume "no change"
                        LD      DE,M4370            ; 
 L2717:
                        CALL    L2748               ; add score values for all enemies hit.
@@ -6320,9 +6400,9 @@ L2717:
 L2739:
                        LD      A,(M4397)           ; 
                        AND     A                   ; updates the zero flag
-                       CALL    Z,L2768             ; if $4397 is 0.
+                       CALL    Z,L2768             ; redraw score if it changed
                        CALL    UpdateSoundControlHW
-                       JP      L3A10               ; 
+                       JP      UpdateSounds        ; 
 
                        .ORG $2748
 ;*****************************************************************************
@@ -6341,15 +6421,15 @@ L2748:
                        RRCA                        ;
                        RRCA                        ;
                        LD      B,A                 ;
-                       AND     $F0                 ;
+                       AND     $F0                 ; 1111_0000
                        LD      C,A                 ;
                        LD      A,B                 ;
-                       AND     $0F                 ;
+                       AND     $0F                 ; 0000_1111
                        LD      B,A                 ;
                        CALL    AddToScore          ; 
                        XOR     A                   ; Clear A Reg.
                        LD      (DE),A              ; clear the temp. score storage and ...
-                       LD      (M4397),A           ; ... the first two digits of BCD score value
+                       LD      (M4397),A           ; mark score as changed (0)
                        RET                         ;
 
                        .ORG $2768
@@ -6364,7 +6444,7 @@ L2748:
 ;* using the 3 byte BCD compare `L0314`.
 ;*****************************************************************************
 L2768:
-                       PUSH    HL                  
+                       PUSH    HL                  ; 
                        LD      DE,$4261            ; end of the screen area of player 1 score
                        LD      B,$06               ; number of digits to print
                        LD      A,(GameAndDemoOrSplash)
@@ -6372,34 +6452,34 @@ L2768:
                        JP      Z,$2778             ; if GameAndDemoOrSplash is 'Game and demo for player 1'
                        LD      DE,$4021            ; end of the screen area of player 2 score
                        CALL    PrintNumber         ; update the score on screen
-                       POP     HL                  
-                       LD      DE,M43BD            ; 
-                       EX      DE,HL               
-                       LD      A,(HL)              
-                       INC     L                   
-                       OR      (HL)                
-                       RET     Z                   
-                       INC     L                   
-                       EX      DE,HL               
-                       CALL    L0314               ; 
-                       RET     NC                  
+                       POP     HL                  ; 
+                       LD      DE,M43BD            ; Low byte of the bonus extra-life score threshold
+                       EX      DE,HL               ; HL = $43BD
+                       LD      A,(HL)              ; $43BD
+                       INC     L                   ; 
+                       OR      (HL)                ; | $43BE Middle byte of the threshold
+                       RET     Z                   ; no bonus pending if both 0
+                       INC     L                   ; -> $43BF High byte of the bonus extra-life score threshold
+                       EX      DE,HL               ; DE = $43BF (threshold high)
+                       CALL    L0314               ; 3-byte BCD compare: threshold vs score
+                       RET     NC                  ; not reached yet -> return
                        LD      A,(GameAndDemoOrSplash)
-                       ADD     $90                 
-                       LD      L,A                 
-                       INC     (HL)                
+                       ADD     $90                 ; 
+                       LD      L,A                 ; 
+                       INC     (HL)                ; +1 life
                        CALL    UpdateLivesScreen   ; 
-                       LD      A,$FF               
-                       LD      (M436A),A           ; 
-                       LD      L,$BE               
-                       LD      A,(HL)              
-                       LD      (HL),$00            
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       DEC     L                   
-                       LD      (HL),A              
-                       RET                         
+                       LD      A,$FF               ; set flag for
+                       LD      (M436A),A           ; 'Bonus live added' (triggers the sound)
+                       LD      L,$BE               ; BonusLivesAt
+                       LD      A,(HL)              ; 
+                       LD      (HL),$00            ; clear it
+                       RRCA                        ; nibble swap
+                       RRCA                        ; ..
+                       RRCA                        ; ..
+                       RRCA                        ; ..
+                       DEC     L                   ; $43BD Low byte of the bonus extra-life score threshold
+                       LD      (HL),A              ; update threshold so it won't re-award
+                       RET                         ; 
 
                        .ORG $27A8
 ;*****************************************************************************
@@ -6415,7 +6495,7 @@ UpdateSoundControlHW:
                        OR      $0F                 ; 0000_1111
                        LD      (HL),A              ;
                        DEC     L                   ;
-                       LD      (HL),$0F            ;
+                       LD      (HL),$0F            ; 0000_1111
                        RET                         ;
 
                        .ORG $27BD
@@ -6427,41 +6507,41 @@ L27BD:
                        LD      A,(HL)              ;
                        AND     A                   ; updates the zero flag
                        JP      NZ,L27E2            ; if player ship was hit.
-                       LD      L,$61               
-                       LD      A,(HL)              
+                       LD      L,$61               ; BulletTriggered
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   
-                       CP      $19                 
-                       JP      NC,L27D8            ; 
-                       DEC     (HL)                
-                       LD      L,$8C               
-                       LD      A,(HL)              
-                       OR      $40                 
-                       LD      (HL),A              
-                       RET                         
+                       RET     Z                   ; 
+                       CP      $19                 ; 
+                       JP      NC,L27D8            ; if >= $19
+                       DEC     (HL)                ; 
+                       LD      L,$8C               ; SoundControlA
+                       LD      A,(HL)              ; 
+                       OR      $40                 ; 0100_0000
+                       LD      (HL),A              ; set noise generator
+                       RET                         ; 
 
                        .ORG $27D8
 L27D8:
-                       LD      (HL),$18            
-                       LD      L,$8C               
-                       LD      A,(HL)              
-                       AND     $BF                 
-                       LD      (HL),A              
-                       RET                         
+                       LD      (HL),$18            ; 0001_1000 frequency divider and sound variation speed
+                       LD      L,$8C               ; SoundControlA
+                       LD      A,(HL)              ; 
+                       AND     $BF                 ; 1011_1111
+                       LD      (HL),A              ; clear noise generator
+                       RET                         ; 
 
                        .ORG $27E2
 ;*****************************************************************************
 ;* Sound for player ship explosion.
 ;*****************************************************************************
 L27E2:
-                       CP      $40                 
+                       CP      $40                 ; 
                        JP      C,L27E9             ; 
-                       LD      (HL),$40            
+                       LD      (HL),$40            ; 
 L27E9:
-                       DEC     (HL)                
-                       LD      L,$8C               
-                       LD      (HL),$8F            
-                       RET                         
+                       DEC     (HL)                ; 
+                       LD      L,$8C               ; SoundControlA
+                       LD      (HL),$8F            ; 1000_1111 frequency divider and noise generator
+                       RET                         ; 
 
 ;*****************************************************************************
 ; h6-ic50.6a
@@ -6552,13 +6632,13 @@ T2B00:
 
 ; Closed loop pattern table part 2:
 ; Used for single or multiple aliens, depending on the game round.
-; Pattern 18
+; Pattern 19
 T2C00:
                        .DB $0B, $0C, $0D, $0E, $0B, $0C, $0A, $0A, $0A, $0A, $0A, $0A, $0A, $06, $06, $1E
                        .DB $03, $03, $1F, $05, $05, $1C, $04, $04, $04, $1D, $06, $06, $1A, $04, $04, $04
                        .DB $1B, $05, $05, $05, $05, $18, $1F, $07, $07, $07, $07, $07, $07, $07, $07, $07
                        .DB $00, $FF, $FF, $FF
-; Pattern 19
+; Pattern 20
 T2C34:
                        .DB $05, $05, $1C, $04, $1D, $0A, $0A, $0A, $0A, $0A, $0A, $06
                        .DB $06, $1E, $03, $03, $1F, $05, $1C, $04, $04, $1D, $0A, $06, $06, $1E, $03, $03
@@ -6566,45 +6646,45 @@ T2C34:
                        .DB $04, $1D, $0A, $06, $1E, $03, $1F, $05, $1C, $04, $1D, $06, $1E, $03, $03, $03
                        .DB $03, $15, $16, $17, $01, $01, $05, $05, $01, $01, $05, $05, $01, $01, $05, $05
                        .DB $01, $01, $05, $05, $02, $02, $18, $07, $07, $07, $00, $FF, $FF, $FF, $FF, $FF
-; Pattern 20 (phase 3)
+; Pattern 21 (phase 3)
 T2C90:
                        .DB $1C, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1D
                        .DB $06, $06, $06, $06, $06, $06, $06, $1E, $03, $03, $03, $03, $03, $03, $1F, $05
                        .DB $05, $05, $05, $1C, $04, $04, $1D, $06, $09, $09, $09, $1E, $03, $07, $07, $08
                        .DB $08, $07, $07, $08, $07, $00, $FF, $FF
-; Pattern 21 (phase 3)
+; Pattern 22 (phase 3)
 T2CC8:
                        .DB $05, $05, $05, $05, $1C, $04, $04, $04
                        .DB $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1D, $09, $09, $09, $09
                        .DB $0A, $0A, $0A, $09, $0A, $0A, $06, $1E, $03, $03, $03, $1F, $05, $05, $18, $03
                        .DB $19, $06, $06, $1E, $03, $03, $1F, $05, $05, $05, $05, $05, $05, $05, $00, $FF
-; Pattern 22
+; Pattern 23
 T2D00:
                        .DB $0B, $0C, $0D, $0E, $0B, $0C, $06, $1E, $03, $03, $03, $03, $03, $03, $03, $03
                        .DB $03, $03, $03, $03, $03, $03, $1F, $05, $05, $1C, $04, $04, $04, $04, $04, $04
                        .DB $04, $04, $04, $04, $1D, $06, $06, $1E, $03, $03, $03, $03, $03, $03, $1F, $05
                        .DB $05, $05, $05, $05, $1C, $04, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1B
                        .DB $00, $FF, $FF, $FF
-; Pattern 23 (phase 3)
+; Pattern 24 (phase 3)
 T2D44:
                        .DB $05, $05, $05, $18, $03, $03, $03, $03, $03, $03, $03, $03
                        .DB $03, $19, $06, $06, $1A, $04, $04, $1B, $05, $05, $18, $03, $03, $03, $03, $03
                        .DB $03, $03, $19, $06, $06, $06, $06, $06, $06, $06, $06, $06, $06, $1A, $04, $04
                        .DB $1B, $05, $05, $1C, $04, $04, $1D, $06, $06, $1A, $04, $04, $1B, $05, $05, $05
                        .DB $05, $05, $05, $05, $00, $FF, $FF, $FF
-; Pattern 24 (phase 3)
+; Pattern 25 (phase 3)
 T2D88:
                        .DB $1C, $04, $04, $1D, $06, $06, $09, $0A
                        .DB $0A, $09, $09, $09, $16, $17, $14, $03, $03, $03, $1F, $05, $05, $1C, $04, $04
                        .DB $1D, $06, $06, $1E, $03, $03, $03, $03, $07, $07, $08, $08, $07, $07, $05, $05
                        .DB $1C, $04, $04, $04, $04, $04, $04, $04, $1D, $1A, $04, $1B, $00, $FF, $FF, $FF
-; Pattern 25 (phase 3)
+; Pattern 26 (phase 3)
 T2DC0:
                        .DB $14, $03, $03, $19, $06, $0A, $0A, $09, $09, $09, $0A, $12, $13, $10, $11, $12
                        .DB $13, $10, $11, $12, $13, $10, $04, $04, $04, $04, $1B, $05, $18, $03, $19, $06
                        .DB $1A, $04, $1B, $05, $18, $07, $07, $07, $08, $08, $07, $07, $07, $03, $03, $19
                        .DB $0D, $0E, $00, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-; Pattern 26
+; Pattern 27
 ; Used for all aliens.
 ; This is the 'Angry movement pattern A'.
 ; At the end of that sequence, the alien formation is further down
@@ -6612,11 +6692,11 @@ T2DC0:
 T2E00:
                        .DB $0B, $0C, $0D, $0E, $02, $02, $02, $02, $0B, $0C, $0D, $0E, $01, $01, $14, $15
                        .DB $16, $17, $01, $01, $05, $05, $05, $05, $02, $02, $02, $02, $00, $FF, $FF, $FF
-; Pattern, 27 (phase 3)
+; Pattern, 28 (phase 3)
 T2E20:
                        .DB $0B, $0C, $0D, $0E, $0B, $0C, $0D, $0E, $02, $02, $02, $02, $02, $02, $02, $02
                        .DB $05, $05, $01, $05, $05, $01, $05, $05, $01, $05, $05, $01, $00, $FF, $FF, $FF
-; Pattern 28
+; Pattern 29
 ; Used for all aliens.
 ; This is the 'Angry movement pattern B'.
 ; At the end of that sequence, the alien formation is further down
@@ -6625,42 +6705,42 @@ T2E40:
                        .DB $0B, $0C, $0D, $0E, $01, $01, $01, $18, $03, $19, $06, $06, $1A, $04, $1B, $05
                        .DB $18, $03, $19, $06, $06, $1A, $04, $04, $04, $04, $04, $04, $04, $04, $04, $1B
                        .DB $05, $05, $05, $01, $01, $01, $01, $01, $00, $FF, $FF, $FF
-; Pattern, 29 (phase 3)
+; Pattern, 30 (phase 3)
 T2E6C:
                        .DB $0B, $0C, $0D, $0E
                        .DB $01, $01, $0B, $0C, $0D, $0E, $01, $01, $05, $05, $05, $05, $01, $01, $0B, $0C
                        .DB $0D, $0E, $01, $01, $07, $08, $08, $07, $08, $08, $08, $07, $00, $FF, $FF, $FF
-; Pattern, 30
+; Pattern, 31
 T2E90:
                        .DB $14, $15, $16, $17, $14, $15, $16, $17, $14, $03, $03, $03, $03, $03, $03, $03
                        .DB $03, $03, $03, $03, $03, $19, $09, $0A, $0A, $09, $09, $0A, $0A, $12, $13, $08
                        .DB $08, $07, $07, $08, $08, $08, $08, $04, $04, $04, $11, $12, $13, $10, $11, $12
                        .DB $13, $00, $FF, $FF
-; Pattern, 31
+; Pattern, 32
 T2EC4:
                        .DB $10, $11, $12, $13, $10, $11, $12, $13, $10, $04, $04, $04
                        .DB $04, $04, $04, $04, $04, $04, $0A, $0A, $0A, $09, $0A, $09, $0A, $09, $16, $17
                        .DB $14, $03, $03, $03, $07, $07, $07, $07, $03, $19, $06, $1A, $04, $1B, $05, $18
                        .DB $07, $07, $07, $07, $00, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-; Pattern, 32
+; Pattern, 33
 T2F00:
                        .DB $05, $1C, $04, $1D, $06, $06, $06, $06, $06, $09, $09, $09, $0A, $0A, $0A, $09
                        .DB $09, $16, $17, $14, $1F, $05, $18, $03, $19, $06, $1E, $03, $1F, $05, $18, $03
                        .DB $19, $06, $1E, $03, $1F, $05, $05, $1C, $08, $08, $08, $08, $08, $08, $08, $08
                        .DB $00, $FF, $FF, $FF
-; Pattern, 33
+; Pattern, 34
 T2F34:
                        .DB $05, $18, $03, $19, $06, $06, $06, $06, $0A, $0A, $09, $09
                        .DB $0A, $0A, $09, $0A, $0A, $12, $13, $10, $1B, $05, $1C, $04, $1D, $1E, $1F, $1C
                        .DB $04, $1D, $06, $1A, $04, $04, $1B, $05, $18, $07, $07, $07, $07, $08, $07, $07
                        .DB $07, $07, $00, $FF
-; Pattern, 34
+; Pattern, 35
 T2F64:
                        .DB $0B, $0C, $0D, $0E, $0B, $0C, $1E, $03, $19, $06, $1E, $03
                        .DB $19, $06, $1E, $03, $19, $06, $1E, $1F, $1C, $1D, $1E, $03, $03, $03, $1F, $05
                        .DB $18, $03, $19, $06, $1E, $03, $1F, $05, $08, $08, $08, $08, $08, $08, $08, $07
                        .DB $07, $08, $08, $08, $08, $08, $00, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
-; Pattern, 35
+; Pattern, 36
 T2FA0:
                        .DB $05, $05, $18, $03, $03, $03, $03, $03, $03, $03, $03, $19, $06, $06, $06, $06
                        .DB $06, $06, $06, $1A, $04, $1B, $05, $18, $03, $03, $03, $03, $19, $06, $06, $06
@@ -6675,7 +6755,6 @@ T2FA0:
 
 ;*****************************************************************************
 ;* AlienBehaviorUpdate.
-;* This is the 'core of the matter'!
 ;* The 'core of the matter': drives every alien attack pattern and the
 ;* randomized selection. One sub-task runs per frame, chosen round-robin by
 ;* Counter93 (0-7) via jump table T3018. The sub-tasks cooperate through the
@@ -6696,7 +6775,8 @@ L3000:
                        INC     HL                  ;
                        LD      L,(HL)              ; get LSB from jump table
                        LD      H,A                 ;
-                       JP      (HL)                ; jump to the corresponding function
+                       JP      (HL)                ; dispatch to sub-task
+
 ;*****************************************************************************
 ;* Sub-task 7: Do nothing.
 ;*****************************************************************************
@@ -6704,7 +6784,7 @@ L3012:
                        RET                         ;
 
                        .ORG $3018
-;
+; Jump table for AlienBehaviorUpdate sub-tasks (by Counter93)
 T3018:
                        .MSFIRST
                        .DW L3264 ; 0 -> L3264  install chosen pattern / rotate start pointer
@@ -6723,43 +6803,43 @@ T3018:
 ;*****************************************************************************
 L3028:
                        LD      HL,M4357            ; 
-                       LD      A,(HL)              
-                       CP      $03                 
-                       RET     NC                  ; if >= 3
-                       LD      L,$50               
-                       LD      A,(HL)              ; get $4350
-                       CP      $04                 
-                       RET     NC                  ; if >= 4
-                       LD      L,$58               
-                       LD      A,(HL)              ; get $4358
+                       LD      A,(HL)              ; escalation counter
+                       CP      $03                 ; 
+                       RET     NC                  ; stop after 3 angry cycles
+                       LD      L,$50               ; 
+                       LD      A,(HL)              ; get $4350 Alien behavior state
+                       CP      $04                 ; 
+                       RET     NC                  ; only act in state < 4
+                       LD      L,$58               ; 
+                       LD      A,(HL)              ; get $4358 angry-interval timer
                        AND     A                   ; updates the zero flag
-                       JP      Z,L305C             ; 
-                       DEC     (HL)                ; $4358
-                       RET     NZ                  
-                       DEC     L                   
-                       INC     (HL)                ; $4357
-                       LD      L,$50               
-                       LD      (HL),$04            ; set $4350
-                       LD      L,$53               
-                       LD      (HL),$10            ; set $4353
-                       INC     L                   
-                       LD      (HL),$50            ; set $4354
-                       LD      L,$51               
-                       LD      (HL),$2E            ; set $4351
-                       INC     L                   
-                       LD      (HL),$00            ; clear $4352
+                       JP      Z,L305C             ; expired -> compute next interval
+                       DEC     (HL)                ; tick $4358 timer
+                       RET     NZ                  ; 
+                       DEC     L                   ; 
+                       INC     (HL)                ; $4357++  (advance a cycle)
+                       LD      L,$50               ; 
+                       LD      (HL),$04            ; set $4350 next alien behavior state to 4
+                       LD      L,$53               ; 
+                       LD      (HL),$10            ; set $4353 Number of aliens doing the closed loop pattern
+                       INC     L                   ; 
+                       LD      (HL),$50            ; $4354 = $50
+                       LD      L,$51               ; 
+                       LD      (HL),$2E            ; $4351 = pattern page T2Exx
+                       INC     L                   ; 
+                       LD      (HL),$00            ; set $4352 for T2E00
                        LD      A,(PlayerShipX)     ; 
-                       RRCA                        
-                       RET     C                   
-                       LD      (HL),$40            ; set $4352
-                       RET                         
+                       RRCA                        ; 
+                       RET     C                   ; player X odd -> keep T2E00
+                       LD      (HL),$40            ; set $4352 for T2E40
+                       RET                         ; 
 
                        .ORG $305C
 ;*****************************************************************************
 ;* End of movement pattern reached. Get the next start pointer.
 ;*****************************************************************************
 L305C:
-                       CALL    L3074               ; 
+                       CALL    L3074               ; C = scaled random magnitude
                        LD      HL,M4357            ; 
                        LD      A,(HL)              ; get $4357
                        RLCA                        ; Multiply by 4 ..
@@ -6769,7 +6849,7 @@ L305C:
                        ADD     A,C                 ;
                        ADD     $07                 ;
                        LD      L,$58               ;
-                       LD      (HL),A              ; store to $4358
+                       LD      (HL),A              ; $4358 = new interval
                        RET                         ;
 
                        .ORG $3074
@@ -6779,41 +6859,41 @@ L305C:
 ;*****************************************************************************
 L3074:
                        LD      HL,LevelAndRound    ; 
-                       LD      A,(HL)              
-                       RRCA                        
-                       NOP                         
-                       AND     $07                 ; 0000_0111
-                       LD      B,A                 
-                       LD      A,$07               
-                       SUB     B                   
-                       LD      C,A                 
+                       LD      A,(HL)              ; 
+                       RRCA                        ; 
+                       NOP                         ; 
+                       AND     $07                 ; 0000_0111 game round 0..7
+                       LD      B,A                 ; 
+                       LD      A,$07               ; 
+                       SUB     B                   ; C = 7 - round
+                       LD      C,A                 ; 
                        LD      A,(HL)              ; get LevelAndRound
-                       CP      $80                 
+                       CP      $80                 ; 
                        JP      C,L3089             ; 
-                       LD      A,$70               
+                       LD      A,$70               ; clamp high levels
 L3089:
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       AND     $07                 
-                       LD      B,A                 
-                       LD      A,$07               
-                       SUB     B                   
-                       ADD     A,C                 
-                       LD      C,A                 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       AND     $07                 ; 0000_0111 game level 0..7
+                       LD      B,A                 ; 
+                       LD      A,$07               ; 
+                       SUB     B                   ; 7 - level
+                       ADD     A,C                 ; 
+                       LD      C,A                 ; 
                        LD      A,(AliensLeft)      ; 
-                       SUB     $05                 
-                       JP      NC,L309F            ; 
-                       LD      A,$10               
+                       SUB     $05                 ; 
+                       JP      NC,L309F            ; if AliensLeft >= 5
+                       LD      A,$10               ; else add a bonus
 L309F:
-                       ADD     A,C                 
-                       LD      C,A                 
+                       ADD     A,C                 ; 
+                       LD      C,A                 ; 
                        CALL    GetRandomNumber     ; 
-                       AND     $07                 
-                       ADD     A,C                 
-                       LD      C,A                 
-                       RET                         
+                       AND     $07                 ; 0000_0111  for 0 to 7
+                       ADD     A,C                 ; 
+                       LD      C,A                 ; C = final magnitude
+                       RET                         ; 
 
                        .ORG $30AA
 ;*****************************************************************************
@@ -6840,85 +6920,85 @@ GetRandomNumber:
 ;*****************************************************************************
 L30BA:
                        LD      HL,M4358            ; 
-                       CALL    L30DA               ; for $4359
-                       CALL    L30DA               ; for $435A
-                       CALL    L30DA               ; for $435B
-                       LD      L,$50               
-                       LD      A,(HL)              ; get $4350
+                       CALL    L30DA               ; tick $4359
+                       CALL    L30DA               ; tick $435A
+                       CALL    L30DA               ; tick $435B
+                       LD      L,$50               ; 
+                       LD      A,(HL)              ; get $4350 Alien behavior state
                        AND     A                   ; updates the zero flag
-                       RET     NZ                  ; if <> 0
-                       LD      L,$55               
-                       LD      A,(HL)              ; get $4355
+                       RET     NZ                  ; only when state == 0
+                       LD      L,$55               ; 
+                       LD      A,(HL)              ; $4355 attack delay
                        AND     A                   ; updates the zero flag
-                       JP      Z,L30E4             ; if 0
-                       DEC     (HL)                
-                       RET     NZ                  
-                       LD      L,$50               
-                       LD      (HL),$01            
-                       RET                         
+                       JP      Z,L30E4             ;  expired -> recompute delay
+                       DEC     (HL)                ; else count down
+                       RET     NZ                  ; 
+                       LD      L,$50               ; 
+                       LD      (HL),$01            ; $4350 next alien behavior state to 1  (begin a new attack)
+                       RET                         ; 
 
                        .ORG $30DA
 ;*****************************************************************************
 ;* Tick one timer (does not go below 0).
 ;*****************************************************************************
 L30DA:
-                       INC     L                   
-                       LD      A,(HL)              
+                       INC     L                   ; 
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   ; if 4359, 435A, 435B = 0
-                       DEC     (HL)                
-                       RET                         
+                       RET     Z                   ; already 0 -> nothing
+                       DEC     (HL)                ; else count down
+                       RET                         ; 
 
                        .ORG $30E4
 ;*****************************************************************************
 ;* Recompute the attack delay $4355 and reload the 3 group timers.
 ;*****************************************************************************
 L30E4:
-                       CALL    L3074               ; 
+                       CALL    L3074               ; C = magnitude
                        LD      HL,Counter9A        ; 
-                       LD      A,(HL)              
-                       CP      $10                 
+                       LD      A,(HL)              ; 
+                       CP      $10                 ; 
                        JP      C,L30F2             ; 
-                       LD      A,$0F               
+                       LD      A,$0F               ; 
 L30F2:
-                       LD      B,A                 
-                       LD      A,$0F               
-                       SUB     B                   
-                       ADD     A,C                 
-                       LD      C,A                 
-                       LD      B,$01               
-                       LD      L,$58               
-                       CALL    L3112               ; for $4359
-                       CALL    L3112               ; for $435A
-                       CALL    L3112               ; for $435B
-                       LD      A,C                 
-                       RRCA                        
-                       RRCA                        
+                       LD      B,A                 ; 
+                       LD      A,$0F               ; 
+                       SUB     B                   ; 
+                       ADD     A,C                 ; 
+                       LD      C,A                 ; 
+                       LD      B,$01               ; 
+                       LD      L,$58               ; $4358
+                       CALL    L3112               ; reload $4359
+                       CALL    L3112               ; reload $435A
+                       CALL    L3112               ; reload $435B
+                       LD      A,C                 ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
                        AND     $3F                 ; 0011_1111
-                       ADD     $01                 
-                       LD      L,$55               
-                       LD      (HL),A              ; set $4355
-                       RET                         
+                       ADD     $01                 ; 
+                       LD      L,$55               ; 
+                       LD      (HL),A              ; $4355 = new attack delay
+                       RET                         ; 
 
                        .ORG $3112
 ;*****************************************************************************
 ;* Reload one group timer (only if it is currently 0).
 ;*****************************************************************************
 L3112:
-                       INC     L                   
-                       LD      A,(HL)              
+                       INC     L                   ; 
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
                        RET     NZ                  ; if <> 0
-                       LD      A,C                 
-                       RRCA                        
+                       LD      A,C                 ; 
+                       RRCA                        ; 
                        AND     $7F                 ; 0111_1111
-                       LD      C,A                 
-                       LD      A,B                 
+                       LD      C,A                 ; 
+                       LD      A,B                 ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   
-                       DEC     B                   
-                       LD      (HL),$0C            
-                       RET                         
+                       RET     Z                   ; 
+                       DEC     B                   ; 
+                       LD      (HL),$0C            ; 
+                       RET                         ; 
 
                        .ORG $3124
 ;*****************************************************************************
@@ -6928,32 +7008,32 @@ L3112:
 ;*****************************************************************************
 L3124:
                        LD      HL,M4350            ; 
-                       LD      A,(HL)              
-                       CP      $01                 
-                       RET     NZ                  ; if <> 1
-                       LD      (HL),$02            ; set $4350
-                       LD      L,$B8               
+                       LD      A,(HL)              ; get alien behavior state
+                       CP      $01                 ; 
+                       RET     NZ                  ; only in state 1
+                       LD      (HL),$02            ; set $4350 next alien behavior state to 2
+                       LD      L,$B8               ; 
                        LD      A,(HL)              ; get LevelAndRound
-                       RRCA                        
-                       RRCA                        
-                       AND     $0F                 
-                       ADD     $05                 
-                       CP      $11                 
-                       JP      C,L313D             ; 
-                       LD      A,$05               
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       AND     $0F                 ; 0000_1111 (bit 0,1 game round / bit 2,3 game level)
+                       ADD     $05                 ; 
+                       CP      $11                 ; 
+                       JP      C,L313D             ; cap when round >= 4
+                       LD      A,$05               ; 
 L313D:
-                       LD      L,$57               
-                       SUB     (HL)                
-                       LD      B,A                 
+                       LD      L,$57               ; $4357
+                       SUB     (HL)                ; minus $4357 (escalation)
+                       LD      B,A                 ; 
                        CALL    GetRandomNumber     ; 
-                       INC     A                   
-                       CP      B                   
+                       INC     A                   ; 1..16
+                       CP      B                   ; 
                        JP      C,L314B             ; 
-                       LD      A,$01               
+                       LD      A,$01               ; at least one alien
 L314B:
-                       LD      L,$53               
-                       LD      (HL),A              
-                       RET                         
+                       LD      L,$53               ; $4353
+                       LD      (HL),A              ; set $4353 = attacker count
+                       RET                         ; 
 
                        .ORG $315A
 ;*****************************************************************************
@@ -6963,66 +7043,66 @@ L314B:
 ;*****************************************************************************
 L315A:
                        LD      HL,M4350            ; 
-                       LD      A,(HL)              
-                       CP      $02                 
-                       RET     NZ                  ; if <> 2
-                       CALL    GetRandomNumber     ; 
-                       NOP                         
-                       LD      B,A                 
+                       LD      A,(HL)              ; get alien behavior state
+                       CP      $02                 ; 
+                       RET     NZ                  ; only in state 2
+                       CALL    GetRandomNumber     ; random start index
+                       NOP                         ; 
+                       LD      B,A                 ; 
                        RLCA                        ; Multiply by 2
-                       ADD     $50                 
-                       LD      L,A                 
-                       LD      H,$4B               
-                       LD      A,B                 
+                       ADD     $50                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$4B               ; HL = $4B50 + rand*2 (pattern ptr)
+                       LD      A,B                 ; 
                        RLCA                        ; Multiply by 4 ..
-                       RLCA                        ;
-                       ADD     $70                 
-                       LD      E,A                 
-                       LD      D,$4B               
-                       LD      C,$10               
-                       LD      A,C                 
-                       SUB     B                   
-                       LD      B,A                 
+                       RLCA                        ; 
+                       ADD     $70                 ; 
+                       LD      E,A                 ; 
+                       LD      D,$4B               ; DE = $4B70 + rand*4 (grid)
+                       LD      C,$10               ; scan all 16 aliens
+                       LD      A,C                 ; 
+                       SUB     B                   ; 
+                       LD      B,A                 ; 
 L3179:
-                       CALL    L3192               ; 
-                       INC     DE                  
-                       INC     DE                  
-                       INC     DE                  
-                       INC     DE                  
-                       INC     HL                  
-                       INC     HL                  
-                       DEC     B                   
+                       CALL    L3192               ; test this alien
+                       INC     DE                  ; 
+                       INC     DE                  ; 
+                       INC     DE                  ; 
+                       INC     DE                  ; next grid entry (+4)
+                       INC     HL                  ; 
+                       INC     HL                  ; next pattern ptr (+2)
+                       DEC     B                   ; 
                        JP      NZ,L318A            ; 
-                       LD      E,$70               
-                       LD      L,$50               
+                       LD      E,$70               ; wrap grid pointer
+                       LD      L,$50               ; wrap pattern pointer
 L318A:
-                       DEC     C                   
-                       JP      NZ,L3179            ; 
-                       RET                         
+                       DEC     C                   ; 
+                       JP      NZ,L3179            ; loop for all 16 aliens
+                       RET                         ; 
 
                        .ORG $3192
 ;*****************************************************************************
 ;* Match test: active alien whose control bytes equal the start pointer.
 ;*****************************************************************************
 L3192:
-                       LD      A,(DE)              
-                       AND     $08                 
-                       RET     Z                   
-                       LD      A,(M4394)           ; 
-                       CP      (HL)                
-                       RET     NZ                  
-                       LD      A,(M4356)           ; 
-                       INC     L                   
-                       LD      B,(HL)              
-                       DEC     L                   
-                       CP      B                   
-                       RET     NZ                  
-                       LD      A,L                 
-                       LD      (M4354),A           ; 
-                       LD      A,$03               
-                       LD      (M4350),A           ; 
-                       POP     HL                  
-                       RET                         
+                       LD      A,(DE)              ; 
+                       AND     $08                 ; 0000_1000 alien active?
+                       RET     Z                   ; 
+                       LD      A,(M4394)           ; start ptr MSB
+                       CP      (HL)                ; 
+                       RET     NZ                  ; control-A must match
+                       LD      A,(M4356)           ; start ptr LSB
+                       INC     L                   ; 
+                       LD      B,(HL)              ; 
+                       DEC     L                   ; 
+                       CP      B                   ; 
+                       RET     NZ                  ; control-B must match
+                       LD      A,L                 ; 
+                       LD      (M4354),A           ; remember this alien's slot
+                       LD      A,$03               ; 
+                       LD      (M4350),A           ; set next alien behavior state to 3
+                       POP     HL                  ; abort the scan loop
+                       RET                         ; 
 
                        .ORG $31B4
 ;*****************************************************************************
@@ -7032,67 +7112,67 @@ L3192:
 ;* is stored at $4351/$4352 and state advances to 5.
 ;*****************************************************************************
 L31B4:
-                       LD      A,(M4350)           ; 
-                       CP      $03                 
-                       RET     NZ                  ; if <> 3
-                       LD      A,(M4354)           ; 
-                       SUB     $50                 
-                       RLCA                        ; Multiply by 2
-                       ADD     $72                 
-                       LD      L,A                 
-                       LD      H,$4B               
-                       LD      B,(HL)              
-                       INC     L                   
-                       LD      D,(HL)              
+                       LD      A,(M4350)           ; get alien behavior state
+                       CP      $03                 ; 
+                       RET     NZ                  ; only in state 3
+                       LD      A,(M4354)           ; chosen alien slot
+                       SUB     $50                 ; 
+                       RLCA                        ; Multiply by 2 to get 2 byte offset
+                       ADD     $72                 ; -> $4B72 + idx*2 (grid coords)
+                       LD      L,A                 ; 
+                       LD      H,$4B               ; 
+                       LD      B,(HL)              ; get alien screen coordinate X
+                       INC     L                   ; 
+                       LD      D,(HL)              ; get alien screen coordinate Y
                        LD      A,(PlayerShipX)     ; 
-                       LD      C,$04               
-                       CP      B                   
-                       JP      NC,L31D6            ; 
-                       LD      C,A                 
-                       LD      A,B                 
-                       LD      B,C                 
-                       LD      C,$00               
+                       LD      C,$04               ; 
+                       CP      B                   ; 
+                       JP      NC,L31D6            ; if PlayerShipX > alien screen coordinate X
+                       LD      C,A                 ; 
+                       LD      A,B                 ; 
+                       LD      B,C                 ; 
+                       LD      C,$00               ; 
 L31D6:
-                       SUB     B                   
+                       SUB     B                   ; distance to player
                        RLCA                        ; Multiply by 8 ..
                        RLCA                        ; ..
                        RLCA                        ; ..
-                       AND     $07                 
+                       AND     $07                 ; 0000_0111
                        ADD     $00                 ; LSB for table T3300
-                       LD      L,A                 
+                       LD      L,A                 ; 
                        LD      H,$33               ; get MSB for table T3300
-                       LD      A,(HL)              
-                       ADD     A,C                 
+                       LD      A,(HL)              ; T3300 group
+                       ADD     A,C                 ; 
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       LD      C,A                 
-                       NOP                         
-                       NOP                         
-                       NOP                         
+                       LD      C,A                 ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       NOP                         ; 
                        LD      A,(M4357)           ; 
-                       LD      B,A                 
-                       CALL    L3210               ; 
-                       LD      A,C                 
-                       ADD     A,B                 
+                       LD      B,A                 ; 
+                       CALL    L3210               ; attack phase from alien Y
+                       LD      A,C                 ; 
+                       ADD     A,B                 ; 
                        ADD     $10                 ; LSB for table T3310
-                       LD      L,A                 
+                       LD      L,A                 ; 
                        LD      H,$33               ; get MSB for table T3310
-                       LD      C,(HL)              
+                       LD      C,(HL)              ; get data from T3310
                        CALL    GetRandomNumber     ; 
-                       AND     $06                 
-                       ADD     A,C                 
-                       LD      L,A                 
-                       LD      H,$33               ; get MSB for table T3330 (base adresses of closed loops pattern tables for aliens)
-                       LD      A,(HL)              
-                       INC     L                   
-                       LD      B,(HL)              
+                       AND     $06                 ; 0000_0110 (0, 2, 4 or 6)
+                       ADD     A,C                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$33               ; get MSB for table T3330 (base adresses of closed loop pattern tables for aliens)
+                       LD      A,(HL)              ; pattern MSB
+                       INC     L                   ; 
+                       LD      B,(HL)              ; pattern LSB
                        LD      HL,M4350            ; 
-                       LD      (HL),$05            
-                       INC     L                   
-                       LD      (HL),A              
-                       INC     L                   
-                       LD      (HL),B              
-                       RET                         
+                       LD      (HL),$05            ; set $4350 next alien behavior state to 5
+                       INC     L                   ; 
+                       LD      (HL),A              ; set MSB of next closed loop pattern at $4351
+                       INC     L                   ; 
+                       LD      (HL),B              ; set LSB of next closed loop pattern at $4352
+                       RET                         ; 
 
                        .ORG $3210
 ;*****************************************************************************
@@ -7121,38 +7201,38 @@ L3210:
 ;* start pointer, then advance to state 6.
 ;*****************************************************************************
 L322C:
-                       LD      A,(M4350)           ; 
-                       CP      $04                 
-                       RET     NZ                  ; if <> 4
+                       LD      A,(M4350)           ; get alien behavior state
+                       CP      $04                 ; 
+                       RET     NZ                  ; only in state 4
                        LD      HL,M4B50            ; Pointer to alien movement pattern
                        LD      DE,M4B70            ; Alien data structure (grid)
                        LD      A,(M4356)           ; 
-                       LD      C,A                 
-                       LD      A,(M4394)           ; 
-                       LD      B,A                 
+                       LD      C,A                 ; start ptr LSB
+                       LD      A,(M4394)           ; get start value list pointer for alien movement MSB
+                       LD      B,A                 ; start ptr MSB
 L3240:
-                       LD      A,(DE)              
-                       AND     $08                 
+                       LD      A,(DE)              ; 
+                       AND     $08                 ; 0000_1000 alien active?
                        JP      Z,L324E             ; 
-                       LD      A,(HL)              
-                       CP      B                   
-                       RET     NZ                  
-                       INC     L                   
-                       LD      A,(HL)              
-                       DEC     L                   
-                       CP      C                   
-                       RET     NZ                  
+                       LD      A,(HL)              ; 
+                       CP      B                   ; 
+                       RET     NZ                  ; control-A must match
+                       INC     L                   ; 
+                       LD      A,(HL)              ; 
+                       DEC     L                   ; 
+                       CP      C                   ; 
+                       RET     NZ                  ; control-B must match
 L324E:
-                       INC     L                   
-                       INC     L                   
-                       LD      A,E                 
-                       ADD     $04                 
-                       LD      E,A                 
-                       CP      $B0                 
-                       JP      NZ,L3240            ; 
-                       LD      A,$06               
-                       LD      (M4350),A           ; 
-                       RET                         
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      A,E                 ; 
+                       ADD     $04                 ; next grid entry
+                       LD      E,A                 ; 
+                       CP      $B0                 ; 
+                       JP      NZ,L3240            ; loop over alien data structure
+                       LD      A,$06               ; 
+                       LD      (M4350),A           ; set next alien behavior state to 6
+                       RET                         ; 
 
                        .ORG $3264
 ;*****************************************************************************
@@ -7162,56 +7242,56 @@ L324E:
 ;* matching aliens - launching the actual swoop.
 ;*****************************************************************************
 L3264:
-                       LD      HL,M4395            ; 
-                       LD      A,(HL)              ;
+                       LD      HL,M4395            ; start-value list pointer LSB
+                       LD      A,(HL)              ; get start value list pointer for alien movement LSB
                        LD      (M4356),A           ; 
-                       INC     A                   
-                       AND     $0F                 ; 0000_1111
-                       LD      (HL),A              
-                       LD      L,$50               
-                       LD      A,(HL)              ; get $4350
-                       CP      $05                 
-                       RET     C                   ; if < 5
-                       LD      (HL),$00            ; clear $4350
-                       LD      L,$53               
-                       LD      C,(HL)              ; get $4353
-                       INC     L                   
-                       LD      L,(HL)              ; get $4354
-                       LD      H,$4B               
+                       INC     A                   ; 
+                       AND     $0F                 ; 0000_1111 wrap 0..15
+                       LD      (HL),A              ; 
+                       LD      L,$50               ; 
+                       LD      A,(HL)              ; get $4350 Alien behavior state
+                       CP      $05                 ; 
+                       RET     C                   ; nothing prepared yet
+                       LD      (HL),$00            ; set $4350 next alien behavior state to 0
+                       LD      L,$53               ; 
+                       LD      C,(HL)              ; get $4353 Number of aliens doing the closed loop pattern
+                       INC     L                   ; 
+                       LD      L,(HL)              ; get $4354 lead alien slot
+                       LD      H,$4B               ; 
                        LD      A,(M4356)           ; 
-                       LD      D,A                 
-                       LD      A,(M4394)           ; 
-                       LD      E,A                 
-                       LD      A,L                 
-                       SUB     $50                 
-                       RRCA                        
-                       LD      B,A                 
-                       LD      A,$10               
-                       SUB     B                   
-                       LD      B,A                 
+                       LD      D,A                 ; D = start ptr LSB
+                       LD      A,(M4394)           ; get start value list pointer for alien movement MSB
+                       LD      E,A                 ; E = start ptr MSB
+                       LD      A,L                 ; 
+                       SUB     $50                 ; 
+                       RRCA                        ; 
+                       LD      B,A                 ; 
+                       LD      A,$10               ; 
+                       SUB     B                   ; 
+                       LD      B,A                 ; entries left to scan
 L328F:
-                       LD      A,(HL)              
-                       INC     L                   
-                       CP      E                   
-                       JP      NZ,L32A4            ; 
-                       LD      A,(HL)              
-                       CP      D                   
-                       JP      NZ,L32A4            ; 
-                       DEC     L                   
-                       LD      A,(M4351)           ; 
-                       LD      (HL),A              
-                       INC     L                   
-                       LD      A,(M4352)           ; 
-                       LD      (HL),A              
+                       LD      A,(HL)              ; 
+                       INC     L                   ; 
+                       CP      E                   ; 
+                       JP      NZ,L32A4            ; control-A match?
+                       LD      A,(HL)              ; 
+                       CP      D                   ; 
+                       JP      NZ,L32A4            ; control-B match?
+                       DEC     L                   ; 
+                       LD      A,(M4351)           ; get MSB of next closed loop pattern
+                       LD      (HL),A              ; 
+                       INC     L                   ; 
+                       LD      A,(M4352)           ; get LSB of next closed loop pattern
+                       LD      (HL),A              ; alien now flies the swoop
 L32A4:
-                       INC     L                   
-                       DEC     B                   
+                       INC     L                   ; 
+                       DEC     B                   ; 
                        JP      NZ,L32AB            ; 
-                       LD      L,$50               
+                       LD      L,$50               ; wrap to $4B50
 L32AB:
-                       DEC     C                   
-                       JP      NZ,L328F            ; 
-                       RET                         
+                       DEC     C                   ; 
+                       JP      NZ,L328F            ; loop for Number of aliens doing the closed loop pattern
+                       RET                         ; 
 
 ;*****************************************************************************
 ;* Bird-level init:
@@ -7230,41 +7310,42 @@ L32B0:
                        LD      HL,M4350            ; 
                        LD      B,$30               ; 4350 to 437F
                        CALL    ClearBbytesAtHL     ; 
-                       LD      L,$9A               ;
+                       LD      L,$9A               ; Counter9A
                        LD      B,$04               ; 439A to 439D
                        CALL    ClearBbytesAtHL     ; 
                        LD      A,(BirdsLeft)       ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   ; if no BirdsLeft
-                       RLCA                        ; Multiply by 8 ..
+                       RET     Z                   ; not a bird level -> done
+                       RLCA                        ; BirdsLeft * 8 (record size)
                        RLCA                        ; ..
                        RLCA                        ; ..
-                       LD      C,A                 
+                       LD      C,A                 ; 
                        LD      HL,M4B70            ; 
-                       LD      B,$40               
-                       CALL    ClearBbytesAtHL     ; 
-                       LD      D,$4B               
-                       LD      H,$3F               
-                       LD      A,$40               
-                       SUB     C                   
-                       ADD     $70                 
-                       LD      E,A                 
-                       ADD     $10                 
-                       LD      L,A                 
-                       LD      B,C                 
+                       LD      B,$40               ; 
+                       CALL    ClearBbytesAtHL     ;  clear $4B70-$4BAF
+                       LD      D,$4B               ; 
+                       LD      H,$3F               ; source page (T3F80/T3FC0)
+                       LD      A,$40               ; 
+                       SUB     C                   ; 
+                       ADD     $70                 ; 
+                       LD      E,A                 ; dest LSB  = $4B70 + ($40 - BirdsLeft*8)
+                       ADD     $10                 ; 
+                       LD      L,A                 ; src  LSB  = $80  + ($40 - BirdsLeft*8)
+                       LD      B,C                 ; bytes = BirdsLeft*8
                        LD      A,(LevelAndRound)   ; 
-                       RRCA                        
-                       RRCA                        
-                       JP      NC,CopyBbytesHLtoDE ; 
-                       LD      A,L                 
-                       ADD     $40                 
-                       LD      L,A                 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       JP      NC,CopyBbytesHLtoDE ; levels 3/8 -> copy from $3F80 block
+                       LD      A,L                 ; 
+                       ADD     $40                 ; levels 4/9 -> source += $40 ($3FC0 block)
+                       LD      L,A                 ; 
                        JP      CopyBbytesHLtoDE    ; 
 
                        .ORG $3300
 ; Maps "distance from player" -> T3310 group.
 T3300:
                        .DB $00, $01, $02, $02, $03, $03, $03, $03
+; not used
                        .DB $FF, $FF, $FF, $FF, $FF, $FF, $FF, $FF
 
 ; Pointer table for T3330.
@@ -7304,40 +7385,40 @@ L3400:
                        CALL    L3800               ; Collision detection for birds
                        CALL    L2600               ; birds vertical movement update (with 58xx scroll register)
                        CALL    L3800               ; Collision detection for birds
-                       CALL    L3980               ; 
+                       CALL    L3980               ; Player shield vs. bird collision sweep
                        LD      A,(BirdsLeft)       ; 
                        AND     A                   ; updates the zero flag
                        JP      Z,L3462             ; if no BirdsLeft.
                        CP      $04                 ;
-                       JP      NC,L3438            ; 
+                       JP      NC,L3438            ; if >= $04
                        CALL    DrawFirst4BirdObjects ; including the horizontal movement update
                        CALL    DrawSecond4BirdObjects ; including the horizontal movement update
-                       CALL    L3560               ; 
+                       CALL    L3560               ; Bird-launch setup
                        CALL    L3498               ; 
                        CALL    L34AA               ; 
                        LD      A,(Counter9A+$1)    ; 
-                       RRCA                        
+                       RRCA                        ; 
                        JP      C,L0FC0             ; Handle animations for killed aliens
-                       CALL    L3930               ; 
-                       JP      L0C40               ; 
+                       CALL    L3930               ; Bird bomb-drop dispatcher
+                       JP      L0C40               ; EnemyBulletUpdate
 
                        .ORG $3438
 ;
 L3438:
                        LD      A,(Counter9A+$1)    ; 
-                       RRCA                        
+                       RRCA                        ; 
                        JP      C,L3452             ; 
                        CALL    DrawFirst4BirdObjects
-                       CALL    L3560               ; 
+                       CALL    L3560               ; Bird-launch setup
                        CALL    L3498               ; 
                        CALL    L3930               ; 
-                       JP      L0C40               ; 
+                       JP      L0C40               ; EnemyBulletUpdate
 
                        .ORG $3452
 ;
 L3452:
                        CALL    DrawSecond4BirdObjects
-                       CALL    L3560               ; 
+                       CALL    L3560               ; Bird-launch setup
                        CALL    L34AA               ; 
                        JP      L0FC0               ; Handle animations for killed aliens
 
@@ -7345,9 +7426,9 @@ L3452:
 ;
 L3462:
                        LD      A,(Counter9A+$1)    ; 
-                       RRCA                        
-                       RET     C                   
-                       CALL    L0C40               ; 
+                       RRCA                        ; 
+                       RET     C                   ; 
+                       CALL    L0C40               ; EnemyBulletUpdate
                        CALL    L0FC0               ; Handle animations for killed aliens
                        JP      L2204               ; 
 
@@ -7433,55 +7514,55 @@ DrawBirdObject:
                        LD      E,A                 ; save it
                        LD      D,$3E               ; MSB for T3EC0
                        LD      A,(DE)              ; get data starting from $3EC1
-                       LD      C,A                 ;
-                       INC     L                   ;
+                       LD      C,A                 ; 
+                       INC     L                   ; 
                        LD      D,(HL)              ; get $4B71 MSB of screen ram
-                       INC     L                   ;
+                       INC     L                   ; 
                        LD      E,(HL)              ; get $4B72 LSB of screen ram
-                       INC     L                   ;
-                       LD      A,B                 ; restore it
-                       RLCA                        ; Multiply by 8 ..
-                       RLCA                        ; ..
-                       RLCA                        ; ..
+                       INC     L                   ; 
+                       LD      A,B                 ; restore shape index
+                       RLCA                        ; *8  (each shape owns 8 bytes = 4 phase entries)
+                       RLCA                        ; 
+                       RLCA                        ; 
                        ADD     A,(HL)              ; and add to $4B73 alien0 screen coordinate Y
                        AND     $7E                 ; mask out 0111_1110
-                       LD      L,A                 ;
-                       LD      H,$3E               ;
-                       LD      A,(HL)              ; get MSB from address table for bird character block shapes (T3E08)
-                       INC     L                   ;
+                       LD      L,A                 ; 
+                       LD      H,$3E               ; HL = $3E00 + shape*8 + phase  (within T3E08)
+                       LD      A,(HL)              ; MSB of the bird character-block address
+                       INC     L                   ; 
                        LD      L,(HL)              ; get LSB
-                       LD      H,A                 ;
+                       LD      H,A                 ; 
 L34DE:
-                       LD      A,D                 ;
+                       LD      A,D                 ; 
                        CP      $4B                 ; MSB of screen ram
                        JP      NZ,L350C            ; if value is not equal $4B
-                       LD      A,E                 ;
-                       CP      $50                 ;
+                       LD      A,E                 ; 
+                       CP      $50                 ; 
                        JP      C,L350C             ; 
-                       LD      B,$08               ;
-                       INC     L                   ;
-                       INC     L                   ;
-                       SUB     $20                 ;
-                       LD      E,A                 ;
-                       CP      $50                 ;
+                       LD      B,$08               ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       SUB     $20                 ; 
+                       LD      E,A                 ; 
+                       CP      $50                 ; 
                        JP      C,L3509             ; 
-                       LD      B,$10               ;
-                       INC     L                   ;
-                       INC     L                   ;
-                       SUB     $20                 ;
-                       LD      E,A                 ;
-                       CP      $50                 ;
+                       LD      B,$10               ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       SUB     $20                 ; 
+                       LD      E,A                 ; 
+                       CP      $50                 ; 
                        JP      C,L3509             ; 
-                       LD      B,$18               ;
-                       INC     L                   ;
-                       INC     L                   ;
-                       SUB     $20                 ;
-                       LD      E,A                 ;
+                       LD      B,$18               ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       SUB     $20                 ; 
+                       LD      E,A                 ; 
 ;
 L3509:
-                       LD      A,C                 ;
-                       ADD     A,B                 ;
-                       LD      C,A                 ;
+                       LD      A,C                 ; 
+                       ADD     A,B                 ; 
+                       LD      C,A                 ; 
 ;
 L350C:
                        LD      B,$35               ; MSB of return address for the draw shape entry.
@@ -7583,48 +7664,48 @@ L3558:
 ;* They're then consumed by the bird movement/attack code.
 ;*****************************************************************************
 L3560:
-                       CALL    GetRandomNumber     ; 
-                       LD      B,A                 ;
-                       RLCA                        ; Multiply by 4 ..
-                       RLCA                        ; ..
-                       LD      C,A                 ;
-                       RLCA                        ; Multiply by 4 ..
-                       RLCA                        ; ..
-                       OR      B                   
-                       LD      (M436F),A           ; 
+                       CALL    GetRandomNumber     ; A = random 0..15
+                       LD      B,A                 ; 
+                       RLCA                        ; *2
+                       RLCA                        ; *4
+                       LD      C,A                 ; C = random*4  (used for $436D jitter)
+                       RLCA                        ; *8
+                       RLCA                        ; *16
+                       OR      B                   ; 
+                       LD      (M436F),A           ; $436F = (random<<4)|random
                        LD      A,(LevelAndRound)   ; 
-                       CP      $40                 ;
-                       JP      C,L3577             ; if game round < 4
-                       LD      A,$30               
+                       CP      $40                 ; 
+                       JP      C,L3577             ; round < 4 -> use as is
+                       LD      A,$30               ; round >= 4 -> clamp
 L3577:
-                       AND     $30                 
-                       RRCA                        
-                       LD      B,A                 
+                       AND     $30                 ; 0011_0000 round selector
+                       RRCA                        ; -> bits 3-4 : 0,8,$10,$18
+                       LD      B,A                 ; 
                        LD      A,(BirdsLeft)       ; 
-                       DEC     A                   
-                       CP      $04                 
+                       DEC     A                   ; 
+                       CP      $04                 ; 
                        JP      C,L3586             ; 
-                       LD      A,$03               
+                       LD      A,$03               ; clamp BirdsLeft-1 to 3
 L3586:
-                       RLCA                        ; Multiply by 2
-                       OR      B                   
-                       LD      B,A                 
+                       RLCA                        ; *2 -> bits 1-2
+                       OR      B                   ; 
+                       LD      B,A                 ; 
                        LD      A,(Counter9A)       ; 
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       AND     $20                 ; mask out 0010_0000
-                       OR      B                   
-                       ADD     $80                 
-                       LD      L,A                 
-                       LD      H,$3E               
-                       LD      A,(HL)              ; data from table T3E80
-                       LD      (M436E),A           ; 
-                       INC     L                   
-                       LD      A,(HL)              ; data from table T3E80
-                       ADD     A,C                 
-                       AND     $F8                 
-                       LD      (M436D),A           ; 
-                       RET                         
+                       AND     $20                 ; timing bit -> bit 5
+                       OR      B                   ; 
+                       ADD     $80                 ; LSB of $3E80
+                       LD      L,A                 ; 
+                       LD      H,$3E               ; HL = $3E80 + index
+                       LD      A,(HL)              ; byte0
+                       LD      (M436E),A           ; $436E = T3E80 byte0  (bird count/size)
+                       INC     L                   ; 
+                       LD      A,(HL)              ; byte1
+                       ADD     A,C                 ; + random jitter (random<<2)
+                       AND     $F8                 ; 1111_1000 align to 8-pixel grid
+                       LD      (M436D),A           ; $436D = T3E80 byte1 + jitter (start X)
+                       RET                         ; 
 
                        .ORG $35B0
 ;*****************************************************************************
@@ -7639,43 +7720,43 @@ L35B0:
                        AND     A                   ; updates the zero flag
                        RET     Z                   ; if index is 0
                        LD      B,A                 ; save index to B
-                       INC     L                   ;
-                       INC     L                   ;
-                       INC     L                   ;
-                       INC     L                   ;
-                       LD      A,(HL)              ;
+                       INC     L                   ; +1
+                       INC     L                   ; +2
+                       INC     L                   ; +3
+                       INC     L                   ; +4
+                       LD      A,(HL)              ; $4B74 timer
                        AND     A                   ; updates the zero flag
                        JP      Z,L35BE             ; 
-                       DEC     (HL)                ;
+                       DEC     (HL)                ; count down
 L35BE:
-                       EX      DE,HL               ;
-                       PUSH    DE                  ;
-                       LD      A,B                 ; load index
+                       EX      DE,HL               ; DE = bird record + 4
+                       PUSH    DE                  ; (1) push bird pointer(+4)
+                       LD      A,B                 ; state index
                        RLCA                        ; Multiply by 8 ..
                        RLCA                        ; ..
                        RLCA                        ; ..
-                       LD      L,A                 ;
-                       LD      H,$3F               ; MSB of table T3F00 for stack manipulation
-                       LD      B,(HL)              ; get 1st byte
-                       INC     HL                  ;
+                       LD      L,A                 ; 
+                       LD      H,$3F               ; HL = T3F00 + index*8
+                       LD      B,(HL)              ; +0,+1
+                       INC     HL                  ; 
                        LD      C,(HL)              ; get 2nd byte
-                       PUSH    BC                  ; to stack
-                       INC     HL                  ;
+                       PUSH    BC                  ; (2) push "BC constant"
+                       INC     HL                  ; +2,+3
                        LD      B,(HL)              ; get 3rd byte
-                       INC     HL                  ;
+                       INC     HL                  ; 
                        LD      C,(HL)              ; get 4rd byte
-                       PUSH    BC                  ; to stack
-                       INC     HL                  ;
+                       PUSH    BC                  ; (3) push "DE constant"
+                       INC     HL                  ; +4,+5
                        LD      B,(HL)              ; get MSB of 1st address
-                       INC     HL                  ;
+                       INC     HL                  ; 
                        LD      C,(HL)              ; get LSB of 1st address
-                       PUSH    BC                  ; to stack
-                       INC     HL                  ;
+                       PUSH    BC                  ; (4) push 1st address
+                       INC     HL                  ; +6,+7
                        LD      B,(HL)              ; get MSB of 2nd address
-                       INC     HL                  ;
+                       INC     HL                  ; 
                        LD      C,(HL)              ; get LSB of 2nd address
-                       PUSH    BC                  ; to stack
-                       EX      DE,HL               ;
+                       PUSH    BC                  ; (5) push 2nd address
+                       EX      DE,HL               ; HL = bird record + 4 again
                        RET                         ; calls the 2nd address
 ;*****************************************************************************
 ;* Because the 2nd address was pushed last, `RET` jumps there first. So the sequence is:
@@ -7689,86 +7770,86 @@ L35BE:
                        .ORG $35E0
 ; called by $35B0
 L35E0:
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       CP      $10                 
-                       JP      NC,L3628            ; 
-                       LD      B,A                 
-                       DEC     L                   
-                       ADD     A,(HL)              
-                       LD      (HL),A              
-                       DEC     L                   
-                       DEC     L                   
-                       LD      A,B                 
-                       ADD     A,(HL)              
-                       LD      (HL),A              
-                       CP      $08                 
+                       INC     L                   ; -> +5
+                       INC     L                   ; -> +6
+                       LD      A,(HL)              ; A = $4B76 (step)
+                       CP      $10                 ; 
+                       JP      NC,L3628            ; step >= $10 -> special handling
+                       LD      B,A                 ; 
+                       DEC     L                   ; -> +5 (grid X)
+                       ADD     A,(HL)              ; 
+                       LD      (HL),A              ; grid X += step
+                       DEC     L                   ; -> +4
+                       DEC     L                   ; -> +3 (animation phase)
+                       LD      A,B                 ; 
+                       ADD     A,(HL)              ; 
+                       LD      (HL),A              ; animation phase += step
+                       CP      $08                 ; 
                        JP      C,L366A             ; 
-                       AND     $07                 
-                       LD      (HL),A              
-                       DEC     L                   
-                       LD      A,(HL)              
-                       SUB     $20                 
-                       LD      (HL),A              
+                       AND     $07                 ; 0000_0111
+                       LD      (HL),A              ; phase wraps mod 8
+                       DEC     L                   ; 
+                       LD      A,(HL)              ; 
+                       SUB     $20                 ; 
+                       LD      (HL),A              ; 
                        JP      NC,L3604            ; 
-                       DEC     L                   
-                       DEC     (HL)                
-                       INC     L                   
+                       DEC     L                   ; 
+                       DEC     (HL)                ; 
+                       INC     L                   ; 
 L3604:
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       LD      C,(HL)              
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       DEC     L                   
-                       LD      (HL),$10            
-                       SUB     C                   
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      C,(HL)              ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      A,(HL)              ; 
+                       DEC     L                   ; 
+                       LD      (HL),$10            ; 
+                       SUB     C                   ; 
                        JP      Z,L3672             ; 
-                       DEC     A                   
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       AND     $1F                 
-                       CP      B                   
-                       INC     A                   
-                       LD      (HL),A              
-                       RET     C                   
-                       LD      A,(M436E)           ; 
-                       LD      (HL),A              
-                       CP      B                   
-                       RET     Z                   
-                       INC     B                   
-                       LD      (HL),B              
-                       RET                         
+                       DEC     A                   ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       AND     $1F                 ; 0001_1111
+                       CP      B                   ; 
+                       INC     A                   ; 
+                       LD      (HL),A              ; 
+                       RET     C                   ; 
+                       LD      A,(M436E)           ; target count
+                       LD      (HL),A              ; 
+                       CP      B                   ; 
+                       RET     Z                   ; 
+                       INC     B                   ; 
+                       LD      (HL),B              ; 
+                       RET                         ; 
 
                        .ORG $3628
 L3628:
-                       AND     $0F                 
+                       AND     $0F                 ; 0000_1111
                        JP      Z,L3744             ; 
-                       LD      B,A                 
-                       DEC     L                   
-                       LD      A,(HL)              
-                       SUB     B                   
-                       LD      (HL),A              
-                       DEC     L                   
-                       DEC     L                   
-                       LD      A,(HL)              
-                       SUB     B                   
-                       LD      (HL),A              
+                       LD      B,A                 ; 
+                       DEC     L                   ; 
+                       LD      A,(HL)              ; 
+                       SUB     B                   ; 
+                       LD      (HL),A              ; 
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       LD      A,(HL)              ; 
+                       SUB     B                   ; 
+                       LD      (HL),A              ; 
                        JP      NC,L3695            ; 
-                       AND     $07                 
-                       LD      (HL),A              
-                       DEC     L                   
-                       LD      A,(HL)              
-                       ADD     $20                 
-                       LD      (HL),A              
+                       AND     $07                 ; 0000_0111
+                       LD      (HL),A              ; 
+                       DEC     L                   ; 
+                       LD      A,(HL)              ; 
+                       ADD     $20                 ; 
+                       LD      (HL),A              ; 
                        JP      NC,L3648            ; 
-                       DEC     L                   
-                       INC     (HL)                
-                       INC     L                   
+                       DEC     L                   ; 
+                       INC     (HL)                ; 
+                       INC     L                   ; 
 L3648:
                        INC     L                   
                        INC     L                   
@@ -7887,22 +7968,22 @@ L36CC:
                        .ORG $36D2
 ; called by $35B0
 L36D2:
-                       POP     DE                  ;
-                       POP     BC                  ;
-                       POP     HL                  ;
-                       LD      A,(HL)              ;
+                       POP     DE                  ; DE = the "DE constant" (+2,+3)
+                       POP     BC                  ; BC = the "BC constant" (+0,+1)
+                       POP     HL                  ; HL = bird record + 4
+                       LD      A,(HL)              ; ...operate on the bird
                        AND     A                   ; updates the zero flag
-                       RET     NZ                  ;
-                       LD      (HL),B              
-                       DEC     L                   
-                       DEC     L                   
-                       DEC     L                   
-                       DEC     L                   
-                       LD      (HL),D              
-                       LD      A,(M4368)           ; 
-                       OR      $01                 
+                       RET     NZ                  ; 
+                       LD      (HL),B              ; 
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       LD      (HL),D              ; 
+                       LD      A,(M4368)           ; maturity of the birds
+                       OR      $01                 ; 0000_0001
                        LD      (M4368),A           ; 
-                       RET                         
+                       RET                         ; 
 
                        .ORG $36EA
 ; called by $35B0
@@ -7963,44 +8044,44 @@ L36EA:
 ;* and `L36CC` is the plain "pop and return" terminator with no transition.
 ;*****************************************************************************
 L370A:
-                       POP     DE                  
-                       POP     BC                  
-                       POP     HL                  
-                       LD      A,(HL)              
+                       POP     DE                  ; DE = table +2/+3 (alt next-state + mask)
+                       POP     BC                  ; BC = table +0/+1 (alt timer + params)
+                       POP     HL                  ; HL = bird record + 4
+                       LD      A,(HL)              ; phase timer (offset +4)
                        AND     A                   ; updates the zero flag
-                       RET     NZ                  
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       AND     $0F                 
-                       RET     NZ                  
-                       DEC     L                   
-                       DEC     L                   
-                       LD      (HL),B              
-                       DEC     L                   
-                       DEC     L                   
-                       DEC     L                   
-                       DEC     L                   
-                       LD      (HL),D              
-                       LD      A,(M4368)           ; 
-                       OR      $04                 
+                       RET     NZ                  ; still counting down -> not ready, leave
+                       INC     L                   ; -> offset +6 (sub-counter)
+                       INC     L                   ; 
+                       LD      A,(HL)              ; 
+                       AND     $0F                 ; 0000_1111
+                       RET     NZ                  ; sub-counter low nibble busy -> not ready
+                       DEC     L                   ; back to offset +4
+                       DEC     L                   ; 
+                       LD      (HL),B              ; load new phase timer (from table +0)
+                       DEC     L                   ; -> offset +0 (state index)
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       LD      (HL),D              ; set default NEXT state index (from table +2)
+                       LD      A,(M4368)           ; bird maturity flags
+                       OR      $04                 ; 0000_0100 set maturity stage bit 2
                        LD      (M4368),A           ; 
-                       LD      A,(M436F)           ; 
-                       AND     E                   
-                       AND     $F0                 
-                       RET     NZ                  
-                       LD      A,E                 
-                       AND     $0F                 
-                       LD      (HL),A              
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       LD      (HL),C              
-                       LD      A,(M4368)           ; 
-                       OR      $08                 
+                       LD      A,(M436F)           ; per-wave random seed
+                       AND     E                   ; mask with table +3
+                       AND     $F0                 ; 1111_0000
+                       RET     NZ                  ; keep the default transition if high nibble hits
+                       LD      A,E                 ; else take the RANDOMIZED branch:
+                       AND     $0F                 ; 0000_1111
+                       LD      (HL),A              ; override state index = (table+3 low nibble)
+                       INC     L                   ; -> offset +4
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      (HL),C              ; override phase timer = table +1
+                       LD      A,(M4368)           ; maturity of the birds
+                       OR      $08                 ; 0000_1000 set maturity stage bit 3
                        LD      (M4368),A           ; 
-                       RET                         
+                       RET                         ; 
 
                        .ORG $3744
 L3744:
@@ -8131,11 +8212,11 @@ L37DD:
                        JP      NZ,L37DD            ; 
                        RET                         
 
+                       .ORG $3800
 ;*****************************************************************************
 ; h8-ic52.8a
 ;*****************************************************************************
 
-                       .ORG $3800
 ;*****************************************************************************
 ;* Collision detection for birds.
 ;* The routine computes a shape index `B = displayedChar − $90`,
@@ -8249,13 +8330,13 @@ L3894:
 ;* reads the "R" of "AMSTAR ELECTRONICS CORP." — corrupting the bird graphics if patched.
 ;*****************************************************************************
 L38A1:
-                       PUSH    DE                  
-                       LD      C,$20               
-                       EX      DE,HL               
-                       INC     HL                  
-                       LD      D,(HL)              
-                       INC     HL                  
-                       LD      E,(HL)              
+                       PUSH    DE                  ; 
+                       LD      C,$20               ; 
+                       EX      DE,HL               ; 
+                       INC     HL                  ; 
+                       LD      D,(HL)              ; 
+                       INC     HL                  ; 
+                       LD      E,(HL)              ; 
 ;*****************************************************************************
 ;* This is a simple protection against piracy !
 ;* Changing this single letter will result in a disturbing graphics garbage,
@@ -8263,53 +8344,53 @@ L38A1:
 ;*****************************************************************************
                        LD      A,(L198C)           ; First letter 'R' from: " AMSTAR ELECTRONICS CORP. "
                        ADD     $DE                 ; 1101_1110
-                       LD      L,A                 
+                       LD      L,A                 ; 
                        LD      H,$17               ; HL=$17F0 (FourByFourEmpty:)
                        CALL    L34DE               ; 
-                       POP     DE                  
-                       RET                         
+                       POP     DE                  ; 
+                       RET                         ; 
 
                        .ORG $38BC
 ;*****************************************************************************
 ;* Test the wing mask
 ;*****************************************************************************
 L38BC:
-                       ADD     $B0                 
-                       LD      L,A                 
-                       LD      H,$3B               
-                       LD      A,(HL)              
-                       AND     C                   
-                       RET     Z                   
+                       ADD     $B0                 ; LSB of the wing-mask table
+                       LD      L,A                 ; HL = $3BB0 + B
+                       LD      H,$3B               ; 
+                       LD      A,(HL)              ; wing pixel-column mask
+                       AND     C                   ; overlap with bullet column?
+                       RET     Z                   ; no -> no wing hit
                        CALL    L38A1               ; 
-                       LD      A,(DE)              
-                       SUB     $0B                 
+                       LD      A,(DE)              ; 
+                       SUB     $0B                 ; 
                        JP      C,L38E9             ; 
-                       CP      $03                 
-                       JP      NC,L38E9            ; 
-                       LD      B,A                 
-                       LD      H,D                 
-                       LD      A,E                 
-                       ADD     $05                 
-                       LD      L,A                 
+                       CP      $03                 ; 
+                       JP      NC,L38E9            ; if >= $03
+                       LD      B,A                 ; 
+                       LD      H,D                 ; 
+                       LD      A,E                 ; 
+                       ADD     $05                 ; 
+                       LD      L,A                 ; 
                        LD      A,(PlayerBulletX)   ; 
-                       CP      (HL)                
-                       RLA                         
+                       CP      (HL)                ; 
+                       RLA                         ; 
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       AND     $04                 
-                       OR      B                   
-                       ADD     $B8                 
-                       LD      L,A                 
-                       LD      H,$3D               
-                       LD      A,(HL)              
-                       LD      (DE),A              
+                       AND     $04                 ; 0000_0100
+                       OR      B                   ; 
+                       ADD     $B8                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$3D               ; 
+                       LD      A,(HL)              ; replacement (wing shot off) character
+                       LD      (DE),A              ; overwrite the bird tile
 ;*****************************************************************************
 ;* A bird's wing was hit
 ;*****************************************************************************
 L38E9:
-                       LD      A,$FF               
-                       LD      (M4366),A           ; 
-                       LD      BC,$0702            
+                       LD      A,$FF               ; set the flag for
+                       LD      (M4366),A           ; bird wing hit detected
+                       LD      BC,$0702            ; 
                        JP      L38F8               ; 
 
                        .ORG $38F8
@@ -8345,24 +8426,24 @@ L3906:
 ;* Wing mask (`$3BB0`+B) — `L38BC`, reached from `L391C` when `B >= $20`.
 ;*****************************************************************************
 L391C:
-                       LD      A,B                 
-                       CP      $20                 
-                       JP      NC,L38BC            ; 
-                       RET                         
+                       LD      A,B                 ; 
+                       CP      $20                 ; 
+                       JP      NC,L38BC            ;  if B >= $20, test the wing mask
+                       RET                         ; 
 
 ;*****************************************************************************
 ;* Trigger the melody chip for 'Elise',
 ;* if flag for: 'mother ship score display' is set.
 ;*****************************************************************************
 L3923:
-                       RET     Z                   
-                       DEC     (HL)                
-                       LD      L,$8D               
-                       LD      A,(HL)              
-                       AND     $3F                 
-                       OR      $80                 
-                       LD      (HL),A              
-                       RET                         
+                       RET     Z                   ; 
+                       DEC     (HL)                ; decrement $436B Counter for: 'mother ship score display'
+                       LD      L,$8D               ; SoundControlB
+                       LD      A,(HL)              ; 
+                       AND     $3F                 ; 0011_1111
+                       OR      $80                 ; 1000_0000
+                       LD      (HL),A              ; triggers tune2 -- 'FÜR ELISE' (Beethoven)
+                       RET                         ; 
 
                        .ORG $3930
 ;*****************************************************************************
@@ -8374,32 +8455,32 @@ L3923:
 ;* is the player's mapped X position widened by `D` (from `L3A00`).
 ;*****************************************************************************
 L3930:
-                       LD      A,(M4BD2)           ; 
-                       AND     $1E                 
-                       ADD     T3DC0 & $FF         ; LSB of table T3DC0
-                       LD      L,A                 
-                       LD      H,T3DC0 >> 8        ; MSB of table T3DC0
-                       LD      E,(HL)              
-                       INC     L                   
-                       LD      L,(HL)              
-                       LD      H,$4B               
-                       CALL    L3A00               ; 
-                       LD      A,(M439F)           ; 
-                       ADD     A,D                 
-                       LD      C,A                 
-                       LD      A,(M439E)           ; 
-                       SUB     D                   
-                       LD      B,A                 
+                       LD      A,(B4BD2)           ; A = formation vertical scroll phase (0..31)
+                       AND     $1E                 ; 0001_1110 even -> 2-byte stride index into T3DC0
+                       ADD     T3DC0 & $FF         ; + LSB of table T3DC0
+                       LD      L,A                 ; 
+                       LD      H,T3DC0 >> 8        ; HL = T3DC0 + (phase & $1E)
+                       LD      E,(HL)              ; E = entry.byte0 = number of bird objects to scan
+                       INC     L                   ; 
+                       LD      L,(HL)              ; L = entry.byte1 = LSB of first bird object
+                       LD      H,$4B               ; HL -> first active bird object in $4B70 array
+                       CALL    L3A00               ; gate: may abort L3930; otherwise D = danger half-width
+                       LD      A,(M439F)           ; player mapped position (right edge)
+                       ADD     A,D                 ; 
+                       LD      C,A                 ; C = right bound of player "danger" window
+                       LD      A,(M439E)           ; player mapped position (left edge)
+                       SUB     D                   ; 
+                       LD      B,A                 ; B = left bound of player "danger" window
 L394C:
-                       PUSH    HL                  
-                       CALL    L395C               ; 
-                       POP     HL                  
-                       LD      A,L                 
-                       ADD     $08                 
-                       LD      L,A                 
-                       DEC     E                   
+                       PUSH    HL                  ; 
+                       CALL    L395C               ; test this bird; drop a bomb if it's over the player
+                       POP     HL                  ; 
+                       LD      A,L                 ; 
+                       ADD     $08                 ; next bird object (8-byte stride)
+                       LD      L,A                 ; 
+                       DEC     E                   ; repeat for 'count' birds
                        JP      NZ,L394C            ; 
-                       RET                         
+                       RET                         ; 
 
                        .ORG $395C
 ;*****************************************************************************
@@ -8407,31 +8488,31 @@ L394C:
 ;* HL -> bird object.  B/C = player danger window (left/right).
 ;*****************************************************************************
 L395C:
-                       LD      A,(HL)              
-                       CP      $05                 
-                       RET     C                   
-                       LD      A,L                 
-                       ADD     $05                 
-                       LD      L,A                 
-                       LD      A,(HL)              
-                       CP      B                   
-                       RET     C                   
-                       CP      C                   
-                       RET     NC                  
-                       SUB     $04                 
-                       LD      B,A                 
-                       DEC     L                   
-                       DEC     L                   
-                       DEC     L                   
-                       LD      A,(M4BD2)           ; 
-                       ADD     A,(HL)              
-                       AND     $1F                 
-                       RLCA                        ; Multiply by 8 ..
-                       RLCA                        ; ..
-                       RLCA                        ; ..
-                       ADD     $08                 
-                       LD      C,A                 
-                       JP      L25B7               ; 
+                       LD      A,(HL)              ; +0 = bird shape / maturity index
+                       CP      $05                 ; 
+                       RET     C                   ; skip birds not fully grown (index < 5)
+                       LD      A,L                 ; 
+                       ADD     $05                 ; 
+                       LD      L,A                 ; HL -> object+5 (grid X)
+                       LD      A,(HL)              ; A = bird grid X
+                       CP      B                   ; 
+                       RET     C                   ; bird left of the window -> no bomb
+                       CP      C                   ; 
+                       RET     NC                  ; bird right of the window -> no bomb   (so B <= X < C)
+                       SUB     $04                 ; center the drop under the bird
+                       LD      B,A                 ; B = bomb X
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       DEC     L                   ; HL -> object+2 (vertical/screen-row data)
+                       LD      A,(B4BD2)           ; scroll phase
+                       ADD     A,(HL)              ; + bird's vertical data
+                       AND     $1F                 ; 0001_1111
+                       RLCA                        ; *8 -> screen row
+                       RLCA                        ; 
+                       RLCA                        ; 
+                       ADD     $08                 ; 
+                       LD      C,A                 ; C = bomb Y
+                       JP      L25B7               ; spawn an enemy bullet (the bird drops a bomb)
 
                        .ORG $3980
 ;*****************************************************************************
@@ -8441,11 +8522,11 @@ L395C:
 ;* destroying birds the shield touches, then ticks the shield timer.
 ;*****************************************************************************
 L3980:
-                       LD      A,(M4BD2)           ; 
-                       SUB     $0C                 
-                       RET     C                   
-                       CP      $10                 
-                       RET     NC                  
+                       LD      A,(B4BD2)           ; scroll phase
+                       SUB     $0C                 ; 
+                       RET     C                   ; only when phase is in $0C..$1B
+                       CP      $10                 ; 
+                       RET     NC                  ; 
 ;*****************************************************************************
 ;* --- save the real player bullet state into the $4BC0 buffer ---
 ;*****************************************************************************
@@ -8554,7 +8635,7 @@ L3A00:
 ;*****************************************************************************
 ;* Update all synth sounds and melody trigger data.
 ;*****************************************************************************
-L3A10:
+UpdateSounds:
                        LD      HL,LevelAndRound    ; 
                        LD      A,(HL)              ; get it
                        AND     A                   ; updates the zero flag
@@ -8837,6 +8918,7 @@ T3B60:
                        .DB $00, $06, $FF, $00, $F8, $00, $00, $03, $E0, $00, $E0, $08, $20, $04, $C0, $01
                        .DB $E0, $03, $F8, $0F, $07, $E0, $3F, $03, $FF, $FF, $FF, $3F, $FC, $FF, $F8, $FF
                        .DB $FF, $07, $E0, $1F, $F0, $FF, $FC, $FF, $07, $1E, $FC, $1F, $1F, $7F, $FF, $FF
+
 ;bird character block shapes table (using character set B)
 T3C00:
                        .DB $E8, $00, $E9, $00, $C4, $C6, $C5, $C7, $EA, $00, $EB, $00, $00, $00       ;bird shape #24 Object 3C00
