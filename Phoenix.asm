@@ -8531,37 +8531,37 @@ L3980:
 ;* --- save the real player bullet state into the $4BC0 buffer ---
 ;*****************************************************************************
                        LD      HL,PlayerBulletState
-                       LD      DE,M4BC0            ; 
-                       LD      B,$04               
-                       CALL    CopyBbytesHLtoDE    ; 
-                       LD      L,$E6               
-                       LD      B,$02               
-                       CALL    CopyBbytesHLtoDE    ; 
+                       LD      DE,B4BC0            ; 
+                       LD      B,$04               ; 
+                       CALL    CopyBbytesHLtoDE    ; $43C4..C7 -> $4BC0..C3
+                       LD      L,$E6               ; AbovePlayerBulletMSB
+                       LD      B,$02               ; 
+                       CALL    CopyBbytesHLtoDE    ; $43E6..E7 -> $4BC4..C5
 ;*****************************************************************************
 ;* --- aim the probe at the player ship and force it "active" ---
 ;*****************************************************************************
-                       LD      L,$E2               
+                       LD      L,$E2               ; PlayerShipMSB
                        LD      DE,AbovePlayerBulletMSB
-                       LD      B,$02               
-                       CALL    CopyBbytesHLtoDE    ; 
-                       LD      L,$C4               
-                       LD      (HL),$08            
+                       LD      B,$02               ; 
+                       CALL    CopyBbytesHLtoDE    ; probe address = ship position
+                       LD      L,$C4               ; PlayerBulletState
+                       LD      (HL),$08            ; PlayerBulletState = active
                        LD      DE,M439E            ; 
                        LD      A,(Counter9A+$1)    ; 
-                       RRCA                        
-                       JP      C,L39BF             ; 
-                       INC     E                   
-                       LD      L,$E7               
-                       LD      A,(HL)              
-                       SUB     $20                 
-                       LD      (HL),A              
-                       DEC     L                   
-                       LD      A,(HL)              
-                       SBC     $00                 
-                       LD      (HL),A              
+                       RRCA                        ; 
+                       JP      C,L39BF             ; pick left/right column by frame parity
+                       INC     E                   ; use M439F (right) instead of M439E
+                       LD      L,$E7               ; AbovePlayerBulletLSB
+                       LD      A,(HL)              ; 
+                       SUB     $20                 ; nudge probe up one row
+                       LD      (HL),A              ; 
+                       DEC     L                   ; AbovePlayerBulletMSB
+                       LD      A,(HL)              ; 
+                       SBC     $00                 ; 
+                       LD      (HL),A              ; 
 L39BF:
-                       LD      A,(DE)              
-                       LD      (PlayerBulletX),A   ; 
+                       LD      A,(DE)              ; 
+                       LD      (PlayerBulletX),A   ; probe X = player mapped position
 ;*****************************************************************************
 ;* --- Use (the sweep)
 ;* After saving, the routine forces `PlayerBulletState` active (`$39A7: LD (HL),$08`),
@@ -8569,43 +8569,43 @@ L39BF:
 ;* while stepping the "above-player bullet" address down one row at a time — checking up to ~`$1D` rows for a hit.
 ;*****************************************************************************
 L39C3:
-                       CALL    L3800               ; Collision detection for birds
+                       CALL    L3800               ; bird collision check at this row
                        LD      HL,PlayerBulletState
-                       LD      A,(HL)              
-                       AND     $08                 
-                       JP      Z,L39F0             ; 
+                       LD      A,(HL)              ; 
+                       AND     $08                 ; 0000_1000
+                       JP      Z,L39F0             ; bullet consumed (bird hit) -> shield upkeep
                        LD      HL,AbovePlayerBulletLSB
-                       INC     (HL)                
-                       LD      A,(HL)              
-                       AND     $1F                 
-                       CP      $1D                 
-                       JP      C,L39C3             ; 
+                       INC     (HL)                ; step down a row
+                       LD      A,(HL)              ; 
+                       AND     $1F                 ; 0001_1111
+                       CP      $1D                 ; 
+                       JP      C,L39C3             ; step down a row, repeat (~29 rows)
 ;*****************************************************************************
 ;* --- Restore buffer
 ;* When the sweep finishes (or the shield branch at `L39F0` completes),
 ;* the saved bytes are copied back, returning the player bullet to exactly its previous state
 ;*****************************************************************************
 L39DB:
-                       LD      HL,M4BC0            ; 
+                       LD      HL,B4BC0            ; restore the saved player bullet state
                        LD      DE,PlayerBulletState
-                       LD      B,$04               
-                       CALL    CopyBbytesHLtoDE    ; 
-                       LD      E,$E6               
-                       LD      B,$02               
-                       JP      CopyBbytesHLtoDE    ; 
+                       LD      B,$04               ; 
+                       CALL    CopyBbytesHLtoDE    ; $4BC0..C3 -> $43C4..C7
+                       LD      E,$E6               ; 
+                       LD      B,$02               ; 
+                       JP      CopyBbytesHLtoDE    ; $4BC4..C5 -> $43E6..E7 (and return)
 
                        .ORG $39F0
 ;*****************************************************************************
 ;* Shield timer upkeep (entered on a hit):
 ;*****************************************************************************
 L39F0:
-                       LD      L,$A6               
-                       LD      A,(HL)              
-                       CP      $C0                 
-                       JP      C,L0CC4             ; 
-                       SUB     $01                 
-                       LD      (HL),A              
-                       JP      L39DB               ; 
+                       LD      L,$A6               ; ShieldCount ($43A6)
+                       LD      A,(HL)              ; 
+                       CP      $C0                 ; shield still has time?
+                       JP      C,L0CC4             ; no -> hand off (shield expired handling)
+                       SUB     $01                 ; 
+                       LD      (HL),A              ; spend one unit of shield time
+                       JP      L39DB               ; restore player bullet state and return
 
                        .ORG $3A00
 ;*****************************************************************************
@@ -8621,16 +8621,16 @@ L39F0:
 ;*****************************************************************************
 L3A00:
                        LD      A,(BirdsLeft)       ; 
-                       SUB     $0C                 
-                       CPL                         
-                       INC     A                   
-                       LD      D,A                 
+                       SUB     $0C                 ; 
+                       CPL                         ; 
+                       INC     A                   ; A = $0C - BirdsLeft  (two's-complement negate)
+                       LD      D,A                 ; D = danger-window half width
                        LD      A,(Counter9A+$1)    ; 
-                       RRCA                        
-                       RRCA                        
-                       RET     C                   
-                       POP     HL                  
-                       RET                         
+                       RRCA                        ; 
+                       RRCA                        ; test a timing bit
+                       RET     C                   ; bit set  -> return to L3930, continue the scan
+                       POP     HL                  ; bit clear-> discard L3930's return address...
+                       RET                         ; ...returning to L3930's caller, skipping the scan
 
 ;*****************************************************************************
 ;* Update all synth sounds and melody trigger data.
@@ -8639,100 +8639,100 @@ UpdateSounds:
                        LD      HL,LevelAndRound    ; 
                        LD      A,(HL)              ; get it
                        AND     A                   ; updates the zero flag
-                       JP      NZ,L3B43            ; if LevelAndRound is not 0.
+                       JP      NZ,L3B43            ; if LevelAndRound is not 0, update synth sounds
                        LD      L,$8D               ; set SoundControlB for...
                        LD      (HL),$CF            ; ... 1100_1111 triggers Tune3 -- ESTUDIO (Phoenix theme song)
-                       RET                         ;
+                       RET                         ; 
 ;
 L3A1D:
                        LD      HL,M4369            ; 
-                       LD      A,(HL)              ;
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
                        JP      Z,L3A40             ; if $4369 is 0.
-                       CP      $20                 
+                       CP      $20                 ; 
                        JP      C,L3A2C             ; 
-                       LD      (HL),$20            
+                       LD      (HL),$20            ; 
 L3A2C:
-                       DEC     (HL)                
-                       LD      A,(HL)              
+                       DEC     (HL)                ; 
+                       LD      A,(HL)              ; 
                        RLCA                        ; Multiply by 4 ..
                        RLCA                        ; ..
-                       NOP                         
-                       CPL                         
-                       AND     $0E                 
-                       LD      L,$8D               
-                       LD      (HL),A              
-                       LD      L,$68               
-                       LD      (HL),$00            
-                       LD      L,$66               
-                       LD      (HL),$00            
-                       RET                         
+                       NOP                         ; 
+                       CPL                         ; 
+                       AND     $0E                 ; 0000_1110
+                       LD      L,$8D               ; SoundControlB
+                       LD      (HL),A              ; 
+                       LD      L,$68               ; $4368
+                       LD      (HL),$00            ; reset 'maturity of the birds'
+                       LD      L,$66               ; $4366
+                       LD      (HL),$00            ; reset the flag for: 'Mothership hit'
+                       RET                         ; 
 
 ;*****************************************************************************
 ;* Enemy hit sound during explosion animation.
 ;*****************************************************************************
 L3A40:
-                       LD      L,$64               
-                       LD      A,(HL)              
+                       LD      L,$64               ; $4364 Flag for: 'enemy hit detected' ($FF) and counter
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
                        JP      Z,L3A62             ; 
-                       CP      $10                 
+                       CP      $10                 ; 
                        JP      C,L3A4E             ; 
-                       LD      (HL),$10            
+                       LD      (HL),$10            ; start value for animation counter
 L3A4E:
-                       DEC     (HL)                
-                       LD      A,(HL)              
-                       RRCA                        
-                       NOP                         
-                       NOP                         
-                       CPL                         
-                       AND     $07                 
-                       OR      $10                 
-                       LD      L,$8C               
-                       LD      (HL),A              
-                       LD      L,$66               
-                       LD      (HL),$00            
-                       RET                         
+                       DEC     (HL)                ; 
+                       LD      A,(HL)              ; 
+                       RRCA                        ; 
+                       NOP                         ; 
+                       NOP                         ; 
+                       CPL                         ; 
+                       AND     $07                 ; 0000_0111
+                       OR      $10                 ; 0001_0000 sound variation speed
+                       LD      L,$8C               ; SoundControlA
+                       LD      (HL),A              ; enemy hit sound
+                       LD      L,$66               ; $4366
+                       LD      (HL),$00            ; reset the flag for: 'Mothership hit'
+                       RET                         ; 
 
                        .ORG $3A62
 ;*****************************************************************************
 ;* Bird wing hit sound.
 ;*****************************************************************************
 L3A62:
-                       LD      L,$66               
-                       LD      A,(HL)              
+                       LD      L,$66               ; $4366
+                       LD      A,(HL)              ; get flag 'bird wing hit detected'
                        AND     A                   ; updates the zero flag
-                       RET     Z                   
+                       RET     Z                   ; if not set.
                        CP      $10                 
                        JP      C,L3A78             ; 
                        LD      (HL),$10            
                        LD      A,(LevelAndRound)   ; 
-                       AND     $08                 
+                       AND     $08                 ; 0000_1000
                        JP      Z,L3A78             ; 
                        LD      (HL),$05            
 L3A78:
-                       DEC     (HL)                
-                       LD      L,$8C               
-                       LD      A,(HL)              
-                       AND     $08                 
-                       OR      $04                 
-                       LD      (HL),A              
-                       RET                         
+                       DEC     (HL)                ; 
+                       LD      L,$8C               ; SoundControlA
+                       LD      A,(HL)              ; 
+                       AND     $08                 ; 0000_1000
+                       OR      $04                 ; 0000_0100
+                       LD      (HL),A              ; bird wing hit sound
+                       RET                         ; 
 ;
 L3A82:
                        LD      HL,Counter9A        ; 
                        LD      A,(HL)              
                        CP      $03                 
                        RET     C                   
-                       LD      L,$8D               
+                       LD      L,$8D               ; SoundControlB
                        LD      A,(HL)              
-                       AND     $3F                 
-                       LD      (HL),A              
+                       AND     $3F                 ; 0011_1111
+                       LD      (HL),A              ; stop melody
                        RET                         
 ;
 L3A90:
-                       LD      HL,M436B            ; 
-                       LD      A,(HL)              
+                       LD      HL,M436B            ; Flag for: 'mother ship score display' ($FF) and counter
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
                        JP      L3923               ; 
 
@@ -8742,39 +8742,39 @@ L3A90:
 ;* Sound data is derived from alien control state B.
 ;*****************************************************************************
 L3A98:
-                       LD      HL,M4B70            ; 
-                       LD      BC,$0800            
-                       LD      DE,$03B0            
+                       LD      HL,M4B70            ; Alien control state A
+                       LD      BC,$0800            ; bit3 mask, loop index
+                       LD      DE,$03B0            ; offset to next alien control state A, LSB for end of alien data structure (grid)
 L3AA1:
-                       LD      A,(HL)              
-                       INC     L                   
-                       AND     B                   
+                       LD      A,(HL)              ; 
+                       INC     L                   ; 
+                       AND     B                   ; 0000_1000
                        JP      Z,L3AAE             ; 
-                       LD      A,(HL)              
-                       CP      $28                 
+                       LD      A,(HL)              ; get Alien control state B
+                       CP      $28                 ; 
                        JP      C,L3AAE             ; 
-                       INC     C                   
+                       INC     C                   ; 
 L3AAE:
-                       LD      A,L                 
-                       ADD     A,D                 
-                       LD      L,A                 
-                       CP      E                   
-                       JP      NZ,L3AA1            ; 
-                       LD      A,C                 
+                       LD      A,L                 ; 
+                       ADD     A,D                 ; 
+                       LD      L,A                 ; 
+                       CP      E                   ; 
+                       JP      NZ,L3AA1            ; loop over alien data structure (grid)
+                       LD      A,C                 ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   
-                       CP      $08                 
+                       RET     Z                   ; 
+                       CP      $08                 ; 
                        JP      C,L3ABF             ; 
-                       LD      A,$08               
+                       LD      A,$08               ; 0000_1000
 L3ABF:
-                       ADD     $25                 
-                       LD      C,A                 
+                       ADD     $25                 ; 0010_0101
+                       LD      C,A                 ; 
                        LD      HL,SoundControlA    ; 
-                       LD      A,(HL)              
+                       LD      A,(HL)              ; get
                        AND     $C0                 ; mask out 1100_0000
-                       OR      C                   
-                       LD      (HL),A              ; trigger sound control A
-                       RET                         
+                       OR      C                   ; set e.g. 0010_1101 the terrible sound of an alien attack
+                       LD      (HL),A              ; at SoundControlA
+                       RET                         ; 
 
                        .ORG $3AD0
 ;*****************************************************************************
@@ -8799,17 +8799,17 @@ L3AD0:
                        LD      (HL),A              ; at SoundControlB
                        LD      L,$96               ; $4396 bird-wave background-sound step timer
                        LD      A,(HL)              ; 
-                       INC     (HL)                ; 
+                       INC     (HL)                ; tick
                        AND     A                   ; updates the zero flag
                        JP      Z,L3AF8             ; 
-                       LD      A,(M4BD6)           ; 
+                       LD      A,(B4BD6)           ; combined scroll-phase + active-bird center index (0–31)
                        ADD     $E0                 ; LSB of table T3DE0 Background sound data for the bird waves.
                        LD      E,A                 ; 
                        LD      D,$3D               ; MSB of table T3DE0 Background sound data for the bird waves.
                        LD      A,(DE)              ; 
-                       CP      (HL)                ; 
+                       CP      (HL)                ; reached this note's duration?
                        RET     NC                  ; 
-                       LD      (HL),$00            ; 
+                       LD      (HL),$00            ; reset -> advance tone phase
                        RET                         ; 
 
                        .ORG $3AF8
@@ -8830,21 +8830,21 @@ L3AF8:
 ;*****************************************************************************
 L3B02:
                        LD      HL,Counter9A        ; 
-                       LD      A,(HL)              
-                       CP      $02                 
-                       RET     NC                  
-                       INC     L                   
-                       LD      A,(HL)              
-                       LD      B,A                 
-                       AND     $60                 
-                       LD      L,$8D               
-                       LD      (HL),$0A            
-                       RET     NZ                  
-                       LD      A,B                 
-                       AND     $02                 
-                       ADD     $1C                 
-                       LD      (HL),A              
-                       RET                         
+                       LD      A,(HL)              ; 
+                       CP      $02                 ; 
+                       RET     NC                  ; 
+                       INC     L                   ; 
+                       LD      A,(HL)              ; get Counter9A+1
+                       LD      B,A                 ; 
+                       AND     $60                 ; 0110_0000
+                       LD      L,$8D               ; SoundControlB
+                       LD      (HL),$0A            ; set  0000_1010
+                       RET     NZ                  ; 
+                       LD      A,B                 ; 
+                       AND     $02                 ; mask 0000_0010
+                       ADD     $1C                 ; set  0001_1100
+                       LD      (HL),A              ; at SoundControlB
+                       RET                         ; 
 
                        .ORG $3B1B
 ;*****************************************************************************
@@ -8852,38 +8852,38 @@ L3B02:
 ;* Sound data is derived from player shield animation counter.
 ;*****************************************************************************
 L3B1B:
-                       LD      HL,M4362            ; 
-                       LD      A,(HL)              
+                       LD      HL,M4362            ; Player shield animation counter
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
                        RET     Z                   ; if $4362 is 0.
-                       CP      $40                 
+                       CP      $40                 ; 
                        JP      C,L3B28             ; 
-                       LD      (HL),$40            
-L3B28:
-                       DEC     (HL)                
-                       LD      A,(HL)              
-                       AND     $06                 
+                       LD      (HL),$40            ; 
+L3B28:                                             
+                       DEC     (HL)                ; 
+                       LD      A,(HL)              ; 
+                       AND     $06                 ; 0000_0110
                        RLCA                        ; Multiply by 2
-                       NOP                         
-                       LD      L,$8D               
-                       LD      (HL),A              
-                       RET                         
+                       NOP                         ; 
+                       LD      L,$8D               ; SoundControlB
+                       LD      (HL),A              ; set
+                       RET                         ; 
 
                        .ORG $3B33
 ;*****************************************************************************
 ;* Play the sound for 'Bonus live added'.
 ;*****************************************************************************
 L3B33:
-                       LD      HL,M436A            ; 
-                       LD      A,(HL)              
+                       LD      HL,M436A            ; get flag for: 'Bonus live added'
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   ; if $436A is 0.
-                       DEC     (HL)                
-                       AND     $08                 
-                       OR      $07                 
-                       LD      L,$8D               
-                       LD      (HL),A              
-                       RET                         
+                       RET     Z                   ; if flag not set.
+                       DEC     (HL)                ; 
+                       AND     $08                 ; 0000_1000
+                       OR      $07                 ; 0000_0111
+                       LD      L,$8D               ; SoundControlB
+                       LD      (HL),A              ; set
+                       RET                         ; 
 
                        .ORG $3B43
 ;*****************************************************************************
@@ -8907,19 +8907,31 @@ L3B43:
 ; where the bird's graphic tile actually has solid pixels, rather than treating the whole 8-pixel character cell as solid.
 ; Body mask table:
 T3B60:
-                       .DB $1F, $7C, $F0, $01, $C0
-                       .DB $07, $7F, $FC, $F0, $07, $C0, $1F, $FF, $FC, $03, $F0
-                       .DB $0F, $C0, $3F, $FC, $1F, $F0, $07, $FE, $3F, $F8, $0F, $FF, $FF, $FC, $1F, $FF
-                       .DB $FC, $1F, $FC, $1F, $F0, $7F, $F0, $7F, $C0, $FF, $01, $C0, $FF, $01, $00, $FF
-                       .DB $07, $00, $FF, $07, $FC, $1F, $FC, $1F, $F0, $7F, $F0, $7F, $C0, $FF, $01, $C0
-                       .DB $FF, $01, $00, $FF, $07, $FF, $07, $FC, $1F, $F8, $0F, $F0, $C0, $03, $FF, $FF
-                       .DB $03, $E0, $03, $E0, $0F, $80, $0F, $00, $3C, $00, $1E, $3F, $00, $FC, $F0, $00
-                       .DB $7F, $FE, $00, $F0, $03, $E0, $00, $00, $0F, $80, $00, $00, $3F, $00, $FE, $30
-                       .DB $00, $06, $FF, $00, $F8, $00, $00, $03, $E0, $00, $E0, $08, $20, $04, $C0, $01
-                       .DB $E0, $03, $F8, $0F, $07, $E0, $3F, $03, $FF, $FF, $FF, $3F, $FC, $FF, $F8, $FF
-                       .DB $FF, $07, $E0, $1F, $F0, $FF, $FC, $FF, $07, $1E, $FC, $1F, $1F, $7F, $FF, $FF
+                       .DB $1F, $7C, $F0, $01, $C0, $07, $7F, $FC, $F0, $07, $C0, $1F, $FF, $FC, $03, $F0   ; for bird background tiles 90 - 9F
+                       .DB $0F, $C0, $3F, $FC, $1F, $F0, $07, $FE, $3F, $F8, $0F, $FF, $FF, $FC, $1F, $FF   ; for bird background tiles A0 - AF
+                       .DB $FC, $1F, $FC, $1F, $F0, $7F, $F0, $7F, $C0, $FF, $01, $C0, $FF, $01, $00, $FF   ; for bird background tiles B0 - BF
+                       .DB $07, $00, $FF, $07, $FC, $1F, $FC, $1F, $F0, $7F, $F0, $7F, $C0, $FF, $01, $C0   ; for bird background tiles C0 - CF
+                       .DB $FF, $01, $00, $FF, $07, $FF, $07, $FC, $1F, $F8, $0F, $F0, $C0, $03, $FF, $FF   ; for bird background tiles D0 - DF
 
-;bird character block shapes table (using character set B)
+; Wing mask table:
+; The wing table base is `$3BB0` and it's indexed by `B`, but the wing test only runs for `B >= $20`.
+; So the addresses actually consulted are:
+;  - `B = $20` -> `$3BB0 + $20` = `$3BD0` (bird character `$B0`)
+;  - `B = $4F` -> `$3BB0 + $4F` = `$3BFF` (bird character `$DF`)
+; Entries `$3BB0`–`$3BCF` (which would correspond to `B < $20`) are never reached,
+; they're the dead lower part of the wing table. `$3BD0`–`$3BFF` are the real,
+; in use wing masks, one per bird shape in the `$B0`–`$DF` character range.
+T3BB0:
+                       .DB $03, $E0, $03, $E0, $0F, $80, $0F, $00, $3C, $00, $1E, $3F, $00, $FC, $F0, $00   ; for bird background tiles E0 - EF
+                       .DB $7F, $FE, $00, $F0, $03, $E0, $00, $00, $0F, $80, $00, $00, $3F, $00, $FE, $30   ; for bird background tiles F0 - FF
+
+; Bird wing pixel column collision mask table:
+T3BD0:
+                       .DB $00, $06, $FF, $00, $F8, $00, $00, $03, $E0, $00, $E0, $08, $20, $04, $C0, $01   ; 
+                       .DB $E0, $03, $F8, $0F, $07, $E0, $3F, $03, $FF, $FF, $FF, $3F, $FC, $FF, $F8, $FF   ; 
+                       .DB $FF, $07, $E0, $1F, $F0, $FF, $FC, $FF, $07, $1E, $FC, $1F, $1F, $7F, $FF, $FF   ; 
+
+; Bird character block shapes table (using character set B)
 T3C00:
                        .DB $E8, $00, $E9, $00, $C4, $C6, $C5, $C7, $EA, $00, $EB, $00, $00, $00       ;bird shape #24 Object 3C00
                        .DB $EC, $00, $E9, $00, $C8, $CA, $C9, $CB, $EA, $00, $ED, $00, $00, $00       ;#28 Object 3C0E
@@ -8967,7 +8979,7 @@ T3C00:
                        .DB $00, $00, $01, $00                                     ;like small star Object 3DA8
                        .DB $00, $00, $08, $00                                     ;like medium star Object 3DAC
                        .DB $00, $00, $0A, $00                                     ;like big star Object 3DB0
-                       .DB $00, $00, $0B, $00, $0C, $0C, $0E, $FF                         ;group of stars Object 3DB4
+                       .DB $00, $00, $0B, $00, $0C, $0C, $0E, $FF                 ;group of stars Object 3DB4
                        .DB $0D, $0E, $0D, $FF                                     ;group of stars Object 3DBC
 
 ; Scroll-phase -> active-object-window table for the bird wave.
@@ -8978,22 +8990,22 @@ T3C00:
 ;                 while the count shrinks `7 -> 6 -> ... -> 1`, modeling the top rows scrolling out / fewer rows remaining active.
 ; - Phases 24–30: it wraps back to the top (`$4B70`) and grows again `2 -> 3 -> 4 -> 5`.
 T3DC0:
-                       .DB $06, $70         ; phase  0 : count=6, ptr=$4B70
-                       .DB $07, $70         ; phase  2 : count=7, ptr=$4B70
-                       .DB $08, $70         ; phase  4 : count=8, ptr=$4B70
-                       .DB $08, $70         ; phase  6 : count=8, ptr=$4B70
-                       .DB $08, $70         ; phase  8 : count=8, ptr=$4B70
-                       .DB $07, $78         ; phase 10 : count=7, ptr=$4B78
-                       .DB $06, $80         ; phase 12 : count=6, ptr=$4B80
-                       .DB $05, $88         ; phase 14 : count=5, ptr=$4B88
-                       .DB $04, $90         ; phase 16 : count=4, ptr=$4B90
-                       .DB $03, $98         ; phase 18 : count=3, ptr=$4B98
-                       .DB $02, $A0         ; phase 20 : count=2, ptr=$4BA0
-                       .DB $01, $A8         ; phase 22 : count=1, ptr=$4BA8
-                       .DB $02, $70         ; phase 24 : count=2, ptr=$4B70
-                       .DB $03, $70         ; phase 26 : count=3, ptr=$4B70
-                       .DB $04, $70         ; phase 28 : count=4, ptr=$4B70
-                       .DB $05, $70         ; phase 30 : count=5, ptr=$4B70
+                       .DB $06, M4B70 & $FF         ; phase  0 : count=6, ptr=$4B70
+                       .DB $07, M4B70 & $FF         ; phase  2 : count=7, ptr=$4B70
+                       .DB $08, M4B70 & $FF         ; phase  4 : count=8, ptr=$4B70
+                       .DB $08, M4B70 & $FF         ; phase  6 : count=8, ptr=$4B70
+                       .DB $08, M4B70 & $FF         ; phase  8 : count=8, ptr=$4B70
+                       .DB $07, M4B78 & $FF         ; phase 10 : count=7, ptr=$4B78
+                       .DB $06, M4B80 & $FF         ; phase 12 : count=6, ptr=$4B80
+                       .DB $05, M4B88 & $FF         ; phase 14 : count=5, ptr=$4B88
+                       .DB $04, M4B90 & $FF         ; phase 16 : count=4, ptr=$4B90
+                       .DB $03, M4B98 & $FF         ; phase 18 : count=3, ptr=$4B98
+                       .DB $02, M4BA0 & $FF         ; phase 20 : count=2, ptr=$4BA0
+                       .DB $01, M4BA8 & $FF         ; phase 22 : count=1, ptr=$4BA8
+                       .DB $02, M4B70 & $FF         ; phase 24 : count=2, ptr=$4B70
+                       .DB $03, M4B70 & $FF         ; phase 26 : count=3, ptr=$4B70
+                       .DB $04, M4B70 & $FF         ; phase 28 : count=4, ptr=$4B70
+                       .DB $05, M4B70 & $FF         ; phase 30 : count=5, ptr=$4B70
 
 ; Background sound data for the bird waves.
 ; Slowly ascending and descending tones.
@@ -9140,11 +9152,12 @@ T3E80:
                        .DB $08, $60
 
 ; LSB table for draw routine ($3520) entry.
-; $3548, $3540, aso...
-; for: 7x2, 7x3, 7x3, 7x3, 7x4, 7x5, 7x6, 7x4, 7x5, 7x6, 7x7, 7x5, 7x7, 7x5, 7x4.
 T3EC0:
                        .DB $FF
-                       .DB $48, $40, $40, $40, $38, $30, $28, $38, $30, $28, $20, $30, $20, $30, $28
+                       .DB Draw2x2 & $FF, Draw3x2 & $FF, Draw3x2 & $FF
+                       .DB Draw3x2 & $FF, Draw4x2 & $FF, Draw5x2 & $FF, Draw6x2 & $FF
+                       .DB Draw4x2 & $FF, Draw5x2 & $FF, Draw6x2 & $FF, Draw7x2 & $FF
+                       .DB Draw5x2 & $FF, Draw7x2 & $FF, Draw5x2 & $FF, Draw6x2 & $FF
 
 ; Vertical scrolling/descent motion of the birds attack formation.
 ; Consumed by the bird vertical-movement routine `L2600` and its helper `L2668`.
@@ -9157,10 +9170,10 @@ T3EC0:
 ; This lets the game realise non-integer average descent rates (e.g. an effective 3 1/2 px/frame) by alternating between `n` and `n+1` across frames/sub-phases,
 ; giving smooth variable-speed scrolling. (The alternate path `L2650` reuses the same table but adds to `CounterB9` for the return/upward motion.)
 T3ED0:
-                       .DB $01, $01, $01, $01
-                       .DB $00, $00, $01, $01
-                       .DB $00, $01, $01, $01
-                       .DB $00, $00, $00, $01
+                       .DB $01, $01, $01, $01       ; dither patterns: `1 1 1 1` (always +1)
+                       .DB $00, $00, $01, $01       ; dither patterns: `0 0 1 1` (+1 half the time)
+                       .DB $00, $01, $01, $01       ; dither patterns: `0 1 1 1` (3/4)
+                       .DB $00, $00, $00, $01       ; dither patterns: `0 0 0 1` (1/4)
 
 ; Descent-speed clamp curve table:
 ; This 32-byte block is indexed by `B4BD6` (a 0–31 value) and acts as a per-position speed limit on the computed descent step in `L2668`.
@@ -9198,62 +9211,62 @@ T3F00:
                        .DB $FF, $FF,        ; not used
 ; for bird index to character block shape (1)
                        .DB $20, $FF, $02, $FF   ;BC and DE register contents
-                       .DW L36D2         ;address to call
-                       .DW L36C0         ;address to call
+                       .DW L36D2         ;address to call (a state transition handler)
+                       .DW L36C0         ;address to call (a movement/animation handler)
 ; for bird index to character block shape (2)
-                       .DB $20, $FF, $03, $FF   ;
+                       .DB $20, $FF, $03, $FF   ;BC and DE register contents
                        .DW L36D2         ;address
                        .DW L35E0         ;address
 ; for bird index to character block shape (3)
-                       .DB $30, $FF, $04, $FF   ;
+                       .DB $30, $FF, $04, $FF   ;BC and DE register contents
                        .DW L36D2         ;address
                        .DW L35E0         ;address
 ; for bird index to character block shape (4)
-                       .DB $10, $FF, $05, $FF   ;
+                       .DB $10, $FF, $05, $FF   ;BC and DE register contents
                        .DW L36EA         ;address
                        .DW L35E0         ;address
 ; for bird index to character block shape (5)
-                       .DB $10, $FF, $06, $FF   ;
+                       .DB $10, $FF, $06, $FF   ;BC and DE register contents
                        .DW L36EA         ;address
                        .DW L36C0         ;address
 ; for bird index to character block shape (6)
-                       .DB $10, $60, $07, $1F   ;
+                       .DB $10, $60, $07, $1F   ;BC and DE register contents
                        .DW L370A         ;address
                        .DW L36C0         ;address
 ; for bird index to character block shape (7)
-                       .DB $F0, $10, $0B, $1A   ;
+                       .DB $F0, $10, $0B, $1A   ;BC and DE register contents
                        .DW L370A         ;address
                        .DW L36C0         ;address
 ; for bird index to character block shape (8)
-                       .DB $40, $FF, $04, $FF   ;
+                       .DB $40, $FF, $04, $FF   ;BC and DE register contents
                        .DW L36EA,        ;address
                        .DW L36C0         ;address
 ; for bird index to character block shape (9)
-                       .DB $10, $FF, $08, $FF   ;
+                       .DB $10, $FF, $08, $FF   ;BC and DE register contents
                        .DW L36EA         ;address
                        .DW L36C0         ;address
 ; for bird index to character block shape (A)
-                       .DB $40, $10, $0F, $17   ;
+                       .DB $40, $10, $0F, $17   ;BC and DE register contents
                        .DW L370A         ;address
                        .DW L36C0         ;address
 ; for bird index to character block shape (B)
-                       .DB $10, $FF, $0A, $FF   ;
+                       .DB $10, $FF, $0A, $FF   ;BC and DE register contents
                        .DW L36EA         ;address
                        .DW L35E0         ;address
 ; for bird index to character block shape (C)
-                       .DB $FF, $FF, $FF, $FF   ;
+                       .DB $FF, $FF, $FF, $FF   ;BC and DE register contents
                        .DW L36CC         ;address
                        .DW L35E0         ;address
 ; for bird index to character block shape (D)
-                       .DB $FF, $FF, $FF, $FF   ;
+                       .DB $FF, $FF, $FF, $FF   ;BC and DE register contents
                        .DW L36CC         ;address
                        .DW L35E0         ;address
 ; for bird index to character block shape (E)
-                       .DB $10, $FF, $06, $FF   ;
+                       .DB $10, $FF, $06, $FF   ;BC and DE register contents
                        .DW L36EA         ;address
                        .DW L35E0         ;address
 ; for bird index to character block shape (F)
-                       .DB $10, $10, $07, $79   ;
+                       .DB $10, $10, $07, $79   ;BC and DE register contents
                        .DW L370A         ;address
                        .DW L35E0         ;address
 
