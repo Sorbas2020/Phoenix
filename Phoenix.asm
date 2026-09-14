@@ -1465,14 +1465,14 @@ L04AC:
                        RET     Z                   ; counter 0
                        LD      (HL),$01            ; set game state to 1
                        CP      $7F                 ; 0111_1111
-                       JP      Z,L07F0             ;
+                       JP      Z,L07F0             ; Reset scroll register and clear foreground
                        LD      L,$9A               ;
                        LD      (HL),$00            ; reset Counter9A MSB
                        INC     L                   ; and ..
                        LD      (HL),$00            ; LSB
                        AND     $08                 ; 0000_1000
                        JP      NZ,L04E6            ;
-                       CALL    L06E8               ;
+                       CALL    L06E8               ; Print score column
                        NOP                         ;
                        LD      HL,GameAndDemoOrSplash
                        LD      A,(HL)              ;
@@ -1497,10 +1497,13 @@ L04E6:
                        LD      DE,$4021            ; screen ram addr. of lowest score digit player 2
 L04F4:
                        LD      B,$06               ; number of digits to delete
-                       CALL    L04FB               ;
+                       CALL    L04FB               ; delete one digit from screen
                        RET                         ;
 
                        .ORG $04FB
+;*****************************************************************************
+;* Delete one digit
+;*****************************************************************************
 L04FB:
                        LD      A,$00               ; delete ..
                        LD      (DE),A              ; ..one digit
@@ -1652,17 +1655,18 @@ CopyBbytesHLtoDE:
                        .ORG $05EC
 ;*****************************************************************************
 ;* Init all alien control states for a given level and round.
+;* Loads one pair and stamps it onto every alien.
 ;*****************************************************************************
 InitAlienControlStates:
                        LD      HL,T1500            ;
                        LD      A,(LevelAndRound)   ;
-                       AND     $0F                 ;
-                       RLCA                        ; Multiply by 2
+                       AND     $0F                 ; 0000_1111 game level = low nibble
+                       RLCA                        ; x2 -> 2 bytes per level
                        ADD     A,L                 ;
                        LD      L,A                 ;
-                       LD      D,(HL)              ;
+                       LD      D,(HL)              ; control state A
                        INC     HL                  ;
-                       LD      E,(HL)              ;
+                       LD      E,(HL)              ; control state B
 ;
 L05FA:
                        LD      HL,M4B70            ;
@@ -1672,14 +1676,14 @@ L05FA:
                        RET     Z                   ; if no AliensLeft
 ;
 L0603:
-                       LD      (HL),D              ; set control state A
+                       LD      (HL),D              ; set control state A to every alien
                        INC     L                   ;
-                       LD      (HL),E              ; set control state B
+                       LD      (HL),E              ; set control state B to every alien
                        INC     L                   ;
                        INC     L                   ;
                        INC     L                   ;
                        DEC     B                   ; number of aliens left
-                       JP      NZ,L0603            ;
+                       JP      NZ,L0603            ; repeat for AliensLeft
                        RET                         ;
 
                        .ORG $0610
@@ -1795,7 +1799,7 @@ L0699:
                        CP      C                   ;
                        JP      NZ,L0699            ;
                        LD      A,L                 ;
-                       LD      (M43B3),A           ;
+                       LD      (M43B3),A           ; LSB pointer into the background pattern tables
                        RET                         ;
 
                        .ORG $06B0
@@ -2254,7 +2258,7 @@ GetAnimationChrs:
 ;*****************************************************************************
 PlayerUpdate:
                        CALL    PlayerDataController     ; draw new / delete old objects
-                       CALL    L0886               ; copy current player data to old player data ?
+                       CALL    L0886               ; copy current player data to old player data
                        CALL    L08A0               ; update player position, bullet and shield
                        CALL    L09A0               ; get screen ram adress for player ship position
                        CALL    L097A               ; map player ship position to $439E $439F
@@ -2312,7 +2316,7 @@ MovePlayer:
                        CALL    CheckInputBits      ;
                        JP      Z,L08EB             ;
                        LD      L,$62               ;
-                       LD      (HL),$40            ; set bit6 at $4362
+                       LD      (HL),$40            ; set flag for: 'Player shield active' and animation counter
                        LD      L,$C0               ;
                        LD      A,(HL)              ; get $43C0 PlayerState
                        AND     $F7                 ; mask out 1111_0111
@@ -2549,7 +2553,8 @@ T0A00:
                        .DB $00, $00
                        .DB $00, $00
                        .DB $00, $00
-;
+
+; Tiles for the score average table
 T0A40:
                        .DB $AA, $BA, $AB, $BB     ;alien shape #37 (set A)
                        .DB $80, $90, $81, $91     ;alien shape #34 (set A)
@@ -2801,7 +2806,7 @@ L0B95:
 
                        .ORG $0BA0
 ;*****************************************************************************
-;* Late cleanup: clear background, reset scroll on non‑mothership levels.
+;* Late cleanup: clear background, reset scroll on non mothership levels.
 ;*****************************************************************************
 L0BA0:
                        LD      HL,LevelAndRound    ;
@@ -4035,18 +4040,36 @@ L14E0:
                        RET                         ;
 
                        .ORG $1500
+; Init values for the alien control states A and B for 16 levels.
 ; Copied inside $4B70-$4BAF.
-; Init values for the alien control states A and B for 16 aliens.
+; Why the two level entries differ from each other.
+; "$08" and "$09" are not two intensities of the same thing; they select different draw routines,
+; and that changes what "B" even means. Bits 2–0 of control state A pick the object size via the "Bit3Controller" jump table:
+; - "$08" = "0000_1000" -> size "000" = 1×1. Routine L076D writes control state B straight into screen RAM as a character code.
+; - "$09" = "0000_1001" -> size "001" = 2×1. Routine L0788 treats control state B as the low byte of a $14xx pointer and fetches the two characters from T1420.
+; That's why "B" also has to change:
+; - With A=$08, B=$6C is the literal foreground char $6C — the first frame of the fade-in sequence 6C, 6D, 6E, 6F, 68 that GetAnimationChrs steps through.
+; - With A=$09, B=$60 points at $1460, which holds 6A 00 — alien shape #7, a real one-character alien plus a blank.
+; So the alternation is deliberate: fade-in phases need the 1×1 literal-character path, live phases need the 2×1 shape-table path.
 T1500:
-                       .DB $08, $6C, $09, $60
-                       .DB $08, $6C, $09, $60
-                       .DB $08, $6C, $09, $60
-                       .DB $08, $6C, $09, $60
-                       .DB $08, $6C, $09, $60
-                       .DB $08, $6C, $09, $60
-                       .DB $08, $6C, $09, $60
-                       .DB $09, $60, $09, $60
-; Init values for 16 aliens.
+                       .DB $08, $6C         ; Level 0: stars scrolling, aliens fade in
+                       .DB $09, $60         ; Level 1: player alive with aliens
+                       .DB $08, $6C         ; Level 2: stars scrolling, aliens fade in
+                       .DB $09, $60         ; Level 3: player alive with aliens
+                       .DB $08, $6C         ; Level 4: spiral fill
+                       .DB $09, $60         ; Level 5: birds level
+                       .DB $08, $6C         ; Level 6: spiral fill
+                       .DB $09, $60         ; Level 7: birds level
+                       .DB $08, $6C         ; Level 8: spiral fill
+                       .DB $09, $60         ; Level 9: mothership fade in
+                       .DB $08, $6C         ; Level A: mothership + aliens fade in
+                       .DB $09, $60         ; Level B: player alive, aliens + mothership
+                       .DB $08, $6C         ; Level C: not used
+                       .DB $09, $60         ; Level D: not used
+                       .DB $09, $60         ; Level E: not used
+                       .DB $09, $60         ; Level F: not used
+
+; Init values for 16 levels.
 ; Pointer to alien movement pattern table. T1000
 T1520:
                        .MSFIRST
@@ -4458,6 +4481,12 @@ T1740:
 ; Parity table and initial number of aliens/birds for levels:
 ; odd, odd, even (P), even (P), odd, odd, odd, odd
 ; used with $43B8 LevelAndRound.
+; Bit 7 of the entry is a type flag rather than part of the count.
+; Clear means the value goes to `AliensLeft`.
+; Set means the low seven bits go to `BirdsLeft` instead.
+; So waves 0, 1 and 4–7 get 16 aliens, while waves 2 and 3 get 8 birds.
+; Because levels pair up into waves and `L2204` is only ever reached from odd levels (1, 3, 5, 7, B),
+; the increment always crosses into a new wave.
 T1760:
                        .DB $10, $10, $88, $88, $10, $10, $10, $10 ;
 ;not used
@@ -4676,10 +4705,7 @@ T1A00:
 ;    chosen by the bullet's X position (left/right half) and the tile's low nibble
 ;     — so the belt visibly chips/breaks apart where you shoot it.
 T1B40:
-                       .DB $6C
-                       .DB $6D
-                       .DB $6E
-                       .DB $6F
+                       .DB $6C, $6D, $6E, $6F
 
                        .ORG $1B48
 ; Replacement tiles
@@ -4957,12 +4983,14 @@ L2025:
                        JP      L2146               ; Game's per frame level dispatcher (even/odd phase)
 
                        .ORG $2030
-;
+;*****************************************************************************
+;* Right-half of belt-hit handler
+;*****************************************************************************
 L2030:
                        AND     $03                 ; 0000_0011
                        CP      $01                 ; 
                        LD      DE,$1B50            ; right-half belt-parts table
-                       JP      L23AC               ; 
+                       JP      L23AC               ; belt-hit handler continuation
 
                        .ORG $2040
 ;*****************************************************************************
@@ -5026,7 +5054,20 @@ L2070:
                        JP      L2085               ; 
 
                        .ORG $2085
-;
+;*****************************************************************************
+;* Pick the frame and clip:
+;* `H` is still the control page from the caller, so this selects one of the eight 32-byte frames.
+;* The `AND $E0` after multiplying by 4 means the frame only changes every 8 counts,
+;* and since the counter runs downward the pointer walks forward through the page.
+;* The `NOP` at `$2089` sits exactly where a third `RLCA` would go,
+;* the same kind of in-ROM speed tuning seen elsewhere in this codebase.
+;* This is bottom-edge clipping. The `+$B6` offset applied by the caller
+;* can push the origin past `$433F`, the end of the foreground playfield.
+;* Rather than reject the draw, the loop discards whole rows,
+;* two control bytes and sixteen tile bytes at a time,
+;* until the origin lands inside video RAM.
+;* An explosion near the bottom of the screen simply loses its lower rows.
+;*****************************************************************************
 L2085:
                        SUB     $20                 ; 
                        RLCA                        ; Multiply by 4 ..
@@ -5036,67 +5077,80 @@ L2085:
                        LD      L,A                 ; 
                        LD      A,$E0               ; 
                        SUB     L                   ; 
-                       LD      L,A                 ; 
+                       LD      L,A                 ; L = $E0 - (((counter-$20)*4) & $E0)
 L2091:
                        LD      A,$3F               ; 
                        SUB     C                   ; 
                        LD      A,$43               ; 
                        SBC     B                   ; 
-                       JP      NC,L20B0            ; 
-                       INC     HL                  ; 
+                       JP      NC,L20B0            ; $433F >= BC -> origin is inside video RAM
+                       INC     HL                  ; skip 2 control bytes
                        INC     HL                  ; 
                        LD      A,E                 ; 
-                       ADD     $10                 ; 
+                       ADD     $10                 ; skip 16 tile bytes
                        LD      E,A                 ; 
                        LD      A,C                 ; 
-                       SUB     $20                 ; 
+                       SUB     $20                 ; move the origin up one row
                        LD      C,A                 ; 
                        LD      A,B                 ; 
                        SBC     $00                 ; 
                        LD      B,A                 ; 
-                       JP      L2091               ; 
+                       JP      L2091               ; loop
 
                        .ORG $20B0
 ;*****************************************************************************
 ;* Player ship particles explosion.
+;* Plot the frame.
+;* Two things are worth calling out.
+;* The `EX (SP),HL` trick lets the routine keep two pointers in `HL` alternately,
+;* the control pointer while reading a mask, the screen pointer while plotting,
+;* without a second index register. `DE` is permanently the tile pointer,
+;* and `BC` is spent on the bit counter, so there is nothing left to hold the screen address.
+;* The `LD (HL),$00` before each bit test means erasing the previous frame and
+;* drawing the new one are the same pass. Every one of the 256 cells is written every frame,
+;* either with a glyph or with a blank, so no separate cleanup step is needed.
+;* Termination is by control-pointer alignment: `AND $1F` reaching zero means
+;* 32 control bytes have been consumed, i.e. one complete frame.
+;* The `CP $3F` after the row step is the top-edge counterpart to `L2085`'s bottom-edge clip,
+;* if the screen address drops below `$4000` the frame is cut short.
 ;*****************************************************************************
 L20B0:
-                       PUSH    BC                  ; 
+                       PUSH    BC                  ; screen origin lives on the stack
 L20B1:
                        LD      A,(HL)              ; T2900 control byte (8 flags)
                        EX      (SP),HL             ; HL = screen pointer
                        LD      B,$08               ; 
 L20B5:
-                       LD      (HL),$00            ; erase this cell
+                       LD      (HL),$00            ; erase this cell unconditionally
                        RRCA                        ; next control bit -> carry
                        JP      NC,L20BF            ; bit clear -> leave erased
                        EX      DE,HL               ; 
-                       LD      C,(HL)              ; C = tile from T2800
+                       LD      C,(HL)              ; C = fetch the glyph from T2800
                        EX      DE,HL               ; get data from $2800
                        LD      (HL),C              ; draw the particle
 L20BF:
-                       INC     HL                  ; next screen cell
-                       INC     DE                  ; next T2800 entry
+                       INC     HL                  ; next cell along the row
+                       INC     DE                  ; next tile byte
                        DEC     B                   ; 
                        JP      NZ,L20B5            ; 8 cells per byte
-                       EX      (SP),HL             ; 
-                       INC     HL                  ; 
+                       EX      (SP),HL             ; swap back
+                       INC     HL                  ; next control byte
                        LD      A,L                 ; 
                        RRCA                        ; 
-                       JP      C,L20B1             ; 
+                       JP      C,L20B1             ; second byte of the pair -> same row
                        LD      A,L                 ; 
                        AND     $1F                 ; 0001_1111
-                       JP      Z,L20E1             ; 
+                       JP      Z,L20E1             ; 32 bytes done -> frame complete
                        EX      (SP),HL             ; 
                        LD      A,L                 ; 
-                       SUB     $30                 ; 
+                       SUB     $30                 ; up one row, back to the start column
                        LD      L,A                 ; 
                        LD      A,H                 ; 
                        SBC     $00                 ; 
                        LD      H,A                 ; 
                        EX      (SP),HL             ; 
                        CP      $3F                 ; 
-                       JP      NZ,L20B1            ; 
+                       JP      NZ,L20B1            ; H = $3F means we ran off the top
 L20E1:
                        POP     BC                  ; 
                        RET                         ; 
@@ -5228,7 +5282,9 @@ L2180:
                        JP      L0FC0               ; Handle animations for killed aliens
 
                        .ORG $2190
-;
+;*****************************************************************************
+;* Even phase
+;*****************************************************************************
 L2190:
                        CALL    AlienDataController ; draw or delete alien
                        CALL    L3000               ; AlienBehaviorUpdate
@@ -5237,7 +5293,9 @@ L2190:
                        JP      L0C40               ; EnemyBulletUpdate
 
                        .ORG $21A5
-;
+;*****************************************************************************
+;* Odd phase
+;*****************************************************************************
 L21A5:
                        CALL    L0D1C               ; AlienMovementUpdate
                        CALL    L0D70               ; AlienAnimationUpdate
@@ -5305,7 +5363,21 @@ DrawIntroBirdAnimationFrame:
                        JP      L1EE0               ; Copyright-notice integrity check
 
                        .ORG $2204
-;
+;*****************************************************************************
+;* Wave cleared, advance the level.
+;* Reached from `L21BA` when `AliensLeft` has hit zero, and from `L3462` for the bird waves.
+;* The delay.
+;* `$43B6` is the last byte of the 12-byte level-init block copied
+;* from `T05A8`/`T05B4`/`T05C0`/`T05CC` by `InitGlobalLevelData`. All four blocks end in `$FF`,
+;* so it always starts at `$FF`. Counting from `$FF` down past `$A0` takes 96 decrements,
+;* and `L21BA` only reaches here on frames where bit 0 of the alien movement counter
+;* is clear — every other frame. So roughly 192 frames, a little over three seconds,
+;* elapse between the last enemy dying and the level changing.
+;* That is the pause where the screen sits empty before the next wave fades in.
+;* The handover.
+;* Once the delay expires it sets `GameState` to 2, clears the shield, bumps `LevelAndRound`,
+;* and seeds the enemy count for the new level from `T1760`.
+;*****************************************************************************
 L2204:
                        LD      HL,M43B6            ; End-of-wave countdown timer
                        DEC     (HL)                ; 
@@ -5320,7 +5392,7 @@ L2204:
                        INC     (HL)                ; increment LevelAndRound
                        LD      A,(HL)              ; 
                        AND     $0E                 ; mask out 0000_1110
-                       RRCA                        ; divide by 2
+                       RRCA                        ; wave number = (level & $0E) / 2
                        ADD     T1760 & $FF         ; add to base of table T1760
                        LD      E,A                 ; 
                        LD      D,T1760 >> 8        ; 
@@ -5328,7 +5400,7 @@ L2204:
                        INC     L                   ; AliensLeft
                        LD      A,(DE)              ; get value from table T1760
                        AND     A                   ; updates the flags
-                       JP      P,L222A             ; if not positive.
+                       JP      P,L222A             ; bit7 clear -> it's an alien count
                        INC     L                   ; use BirdsLeft
                        AND     $7F                 ; mask out 0111_1111
 L222A:
@@ -5419,7 +5491,7 @@ L2292:
                        LD      HL,LevelAndRound    ; 
                        LD      A,(HL)              ;
                        AND     $08                 ; mask out 0000_1000
-                       JP      Z,L22F0             ; 
+                       JP      Z,L22F0             ; clear background, reset counter and scroll register
 ;*****************************************************************************
 ;* Fill the entire background with stars (uses the whole `$1C00`–`$1CFF` page, including `$1CB4`–`$1CFF`).
 ;* `L2292` copies the star page into background VRAM from `$4B3F` downward, reading `T1C00` with `INC L`
@@ -5476,7 +5548,9 @@ L22CA:
                        RET                         ;
 
                        .ORG $22E0
-;
+;*****************************************************************************
+;* Set counter and scroll register
+;*****************************************************************************
 L22E0:
                        LD      A,$71               ; init the ...
 ;
@@ -5486,7 +5560,9 @@ L22E2:
                        RET                         ;
 
                        .ORG $22F0
-;
+;*****************************************************************************
+;* Clear background, reset counter and scroll register
+;*****************************************************************************
 L22F0:
                        CALL    ClearBackground     ; 
                        XOR     A                   ; A=0
@@ -5749,7 +5825,7 @@ L2400:
                        RRCA                        ; 
                        NOP                         ; 
                        LD      A,B                 ; 
-                       JP      NC,L20E8            ; 
+                       JP      NC,L20E8            ; draw a 4x4 ship-fragment sprite
                        LD      A,E                 ; 
                        SUB     $05                 ; 
                        ADD     $C0                 ; 
@@ -5916,7 +5992,7 @@ L24C4:
                        AND     $0F                 ; mask out 0000_1111
                        CP      $08                 ;
                        JP      C,L06F0             ; level < 8: just scroll stars
-                       CALL    L24E0               ; 
+                       CALL    L24E0               ; Gated starfield scroll for the mothership levels
                        LD      HL,M43AA            ; Mothership-wave frame counter
                        INC     (HL)                ; mother-ship frame counter
                        LD      A,(HL)              ;
@@ -5925,14 +6001,26 @@ L24C4:
                        JP      L2322               ; Animation of the mothership's antenna and the alien pilot
 
                        .ORG $24E0
-;
+;*****************************************************************************
+;* Gated starfield scroll for the mothership levels.
+;* From game level 8 onward the normal per-frame background handler is replaced,
+;* because the mothership occupies the background layer and cannot be scrolled freely.
+;* `L24E0` applies two brakes to what is otherwise the ordinary `StarsScrollDown` call.
+;* The first is a rate divider. `$43AA` is incremented once per frame by `L24C4` immediately after this call,
+;* so masking its low four bits lets the scroll run on one frame in sixteen — the starfield creeps rather than streams.
+;* The second is a hard stop. `CounterB9` is the free-running backwards counter
+;* that doubles as the vertical scroll register (`StarsScrollDown` writes it to `$5800` and decrements it).
+;* Refusing to scroll once it falls below `$A0` freezes the background after 96 steps,
+;* which is where the mothership has finished descending into position.
+;* From that point the starfield is static for the rest of the mothership encounter.
+;*****************************************************************************
 L24E0:
                        LD      A,(M43AA)           ; Mothership-wave frame counter
                        AND     $0F                 ; 0000_1111
-                       RET     NZ                  ; 
+                       RET     NZ                  ; only every 16th frame
                        LD      A,(CounterB9)       ; 
                        CP      $A0                 ; 
-                       RET     C                   ; gate stars-scroll
+                       RET     C                   ; stop once the counter drops below $A0
                        JP      StarsScrollDown     ; 
 
                        .ORG $24F2
@@ -5978,39 +6066,65 @@ L24F2:
 ;*****************************************************************************
 ;* The 'alien pilot' at mothership was hit.
 ;* Calculation and display of the bonus score for mothership explosion.
+;* The bonus depends on how high the mothership still is when the pilot is hit.
+;* `CounterB9` is its descent position, plus a flat contribution from
+;* the game round in the top nibble of `LevelAndRound`.
+;* Both paths into `L253D` converge on a value in `B`, either computed or clamped to `$90`.
+;* Three details make this routine worth reading closely.
+;* 1. The `XOR A` is not dead code.
+;* It is immediately overwritten by `LD A,B`, so it looks pointless,
+;* but `DAA` on the Z80 keys off the N, H and C flags. `XOR A` clears all three,
+;* guaranteeing `DAA` behaves as an after-addition adjustment regardless
+;* of what the preceding `CP` and `ADD` left behind. It is a flag reset disguised as a register load.
+;* 2. The BCD conversion is an approximation.
+;* `B` holds a plain binary value that was never produced by BCD arithmetic,
+;* so `DAA` does not genuinely convert it — it just adds `$06` when the low nibble
+;* exceeds 9 and `$60` when the high nibble does. The displayed score is therefore close to,
+;* but not exactly, the binary value. With the `$90` cap and the hardcoded trailing `00`,
+;* the maximum bonus displayed is 9000.
+;* 3. The print walks backwards.
+;* `PrintNumber` reads the low nibble of `(HL)` first, then the high nibble,
+;* then does `DEC HL`, moving one column left each time. Leaving `HL` at `$439E` after storing the `$00`
+;* there means the four digits emerge in the correct left-to-right order on screen,
+;* the two digits from `$439D` followed by `00`.
 ;*****************************************************************************
 L2520:
-                       PUSH    DE                  ;
+                       PUSH    DE                  ; 
                        CALL    ClearForeground     ; remove all but the rest of the mothership
-                       POP     DE                  ;
+                       POP     DE                  ; 
                        LD      A,(CounterB9)       ; get value from 8 bit backwards counter
                        ADD     $60                 ; use it for a ...
-                       RRCA                        ; ... score value
+                       RRCA                        ; ... score value = (height + $60) / 2
                        LD      B,A                 ; save it
                        LD      A,(LevelAndRound)   ; 
                        AND     $F0                 ; mask out 1111_0000 (bit4 - 7: game round)
                        ADD     A,B                 ; add score value
-                       LD      B,$90               ;
-                       JP      C,L253D             ; 
-                       CP      $90                 ;
-                       JP      NC,L253D            ; if >= $90
-                       LD      B,A                 ;
+                       LD      B,$90               ; the cap
+                       JP      C,L253D             ; overflowed -> use the cap
+                       CP      $90                 ; 
+                       JP      NC,L253D            ; too big -> use the cap
+                       LD      B,A                 ; 
+;*****************************************************************************
+;* Format and print the mothership bonus score.
+;*****************************************************************************
 L253D:
                        XOR     A                   ; A=0
-                       LD      A,B                 ;
+                       LD      A,B                 ; 
                        DAA                         ; adjust for BCD
                        LD      HL,M439D            ; 
                        LD      (HL),A              ; set value for fist two digits of BCD score
-                       INC     L                   ;
+                       INC     L                   ; 
                        LD      (HL),$00            ; last two digits of BCD score set to '00'
                        LD      A,E                 ; get LSB of screen ram...
-                       SUB     $5E                 ; ...
+                       SUB     $5E                 ; position the print cursor
                        LD      E,A                 ; ...
                        LD      B,$04               ; number of digits to print
                        JP      PrintNumber         ; score for mothership explosion
 
                        .ORG $2552
-;
+;*****************************************************************************
+;* Transition to game state 7, score display
+;*****************************************************************************
 L2552:
                        LD      L,$A4               ; GameState
                        LD      (HL),$07            ; set to 'mother ship score display'
@@ -6025,7 +6139,7 @@ L2552:
 ;* Alien bomb-drop: pick a group of 8 aliens, find one lined up with the
 ;* player at attack depth, and fire an enemy bullet at it.
 ;* Purpose:
-;* `L2560` is the alien bomb drop selector. 
+;* `L2560` is the alien bomb drop selector.
 ;* It picks one of two 8 alien groups (alternating on `Counter93`),
 ;* computes the player's horizontal window (`B`,`C`) and the required attack depth `D`
 ;* (scaled by the attack escalation counter `$4357`), then scans the group with `L2596`.
@@ -6229,9 +6343,9 @@ L2639:
                        LD      (scrollRegister),A  ; $5800 vertical scroll register
                        LD      A,(Counter9A+$1)    ; 
                        RRCA                        ; 
-                       JP      NC,L26D0            ; 
-                       CALL    L2668               ; 
-                       JP      L26AA               ; 
+                       JP      NC,L26D0            ; recompute B4BD6 / B4BD7 from live bird slots
+                       CALL    L2668               ; recompute B4BD5 (descent speed, clamped via $3EE0)
+                       JP      L26AA               ; tick countdown timer for bird attacks
 
                        .ORG $2650
 ;*****************************************************************************
@@ -6253,8 +6367,9 @@ L2650:
                        ADD     A,(HL)              ; 
                        JP      L2639               ; 
                        JP      NC,L26AE            ; 
-
-;
+;*****************************************************************************
+;* Recompute B4BD5 (descent speed, clamped via $3EE0)
+;*****************************************************************************
 L2668:
                        LD      A,(M436E)           ; base for descent-step calc (-> B4BD5)
                        NOP                         ; 
@@ -6297,6 +6412,9 @@ L26A3:
                        RET                         ; 
 
                        .ORG $26AA
+;*****************************************************************************
+;* Tick countdown timer for bird attacks
+;*****************************************************************************
 L26AA:
                        LD      HL,B4BD3            ; countdown timer between bird attacks ("bird extended storage")
                        LD      A,(HL)              ; 
@@ -6324,10 +6442,12 @@ L26AE:
                        AND     $03                 ; 0000_0011
                        INC     A                   ; 
                        LD      C,A                 ; 
-                       JP      L2476               ; 
+                       JP      L2476               ; re-arms the bird attack cycle
 
                        .ORG $26D0
-;
+;*****************************************************************************
+;* Recompute B4BD6 / B4BD7 from live bird slots
+;*****************************************************************************
 L26D0:
                        LD      HL,M4BA8            ; 
                        LD      BC,$0800            ; 
@@ -6362,6 +6482,19 @@ L26E5:
                        .ORG $2700
 ;*****************************************************************************
 ;* Handles the scoring, and the update of sound control HW.
+;* This is the second of the two calls in the main loop (`$0027`),
+;* running once per frame right after `GameStateMachine`.
+;* Despite the name it does three separate jobs:
+;* it cashes in the pending score for every enemy whose death animation just finished,
+;* redraws the on-screen score (but only when it actually changed),
+;* and then pushes the sound shadow registers out to the hardware before recomputing them for the next frame.
+;* Attract mode gets nothing — no scoring, no sound. In a real game,
+;* bit 0 of `GameAndDemoOrSplash` ($43A3) selects the player, and the two
+;* `RLCA`s turn that bit into an offset of 0 or 4, added to `$83`.
+;* `HL` therefore ends up as `$4383` (`Score1low`) or `$4387` (`Score2low`),
+;* the low byte of the current player's 3-byte / 6-digit BCD score.
+;* This pointer is left in `HL` for the whole routine and is what every `AddToScore` call operates on.
+;* `$4397` is then set to `$FF`.
 ;*****************************************************************************
 UpdateScoresAndSound:
                        LD      HL,GameOrAttract    ; 
@@ -6378,6 +6511,31 @@ UpdateScoresAndSound:
                        LD      A,$FF               ;
                        LD      (M4397),A           ; assume "no change"
                        LD      DE,M4370            ; 
+;*****************************************************************************
+;* Scanning the four explosion slots.
+;* `DE` walks the explosion record pool at `$4370`–`$437F`:
+;* four 4-byte slots, the same pool allocated by `L38F8` and animated by `L0FC0`.
+;* The stride looks like 3 but is really 4 — `L2748` does one `INC E` of its own,
+;* so `E` steps `$70 → $74 → $78 → $7C → $80` and the loop terminates on `$80`.
+;* 
+;* Each record is:
+;* 
+;* | Offset | Contents                                                     |
+;* |--------|--------------------------------------------------------------|
+;* | +0     | animation frame counter, decremented each frame              |
+;* | +1     | score value for the kill, as two BCD digits of *points ÷ 10* |
+;* | +2/+3  | screen RAM address (MSB/LSB) of the explosion                |
+;* 
+;* Slots 0 and 1 are driven by `L0FD8` (alien/bird death sprite),
+;* slots 2 and 3 by `L3758` (the bonus explosion with the flickering score digits).
+; The mothership bonus doesn't go through the slot pool.
+;* It is only paid while `GameState` is `$06` ("mother ship particle explosion"),
+;* and it reads `$439D` — the BCD hundreds byte that `L253D` computed from
+;* the mothership's height and the game round. With `B` = that byte and `C = 0`,
+;* `AddToScore` puts it straight into the middle two digits, so `$08` credits 800.
+;* Zeroing `$439D` afterwards makes it a one-shot even though state `$06` lasts many frames,
+;* before `L253D` runs the byte is 0 and the whole block is a no-op.
+;*****************************************************************************
 L2717:
                        CALL    L2748               ; add score values for all enemies hit.
                        INC     E                   ;
@@ -6397,6 +6555,27 @@ L2717:
                        XOR     A                   ; A=0
                        LD      (DE),A              ;
                        LD      (M4397),A           ; 
+;*****************************************************************************
+;* Redraw gate and hand-off to sound.
+;* `L2768` is called only if something was credited,
+;* so the 6-digit score is repainted on the handful of frames where it changes
+;* rather than every frame. That conditional call also carries the
+;* bonus-life logic as a passenger: `L2768` prints the score to `$4261` (player 1)
+;* or `$4021` (player 2), then compares it against the threshold at `$43BD`/`$43BE`
+;* (seeded from DSW0 as `$30`/`$40`/`$50`/`$60`, i.e. 30000–60000).
+;* If the score has passed it, the player's life count is incremented,
+;* the lives display is refreshed, the `$436A` "bonus life added" sound flag is raised,
+;* and `BonusLivesAt` is consumed so the award happens once.
+;* A side effect of the gating is that the bonus life can only ever be granted
+;* on a frame where points were scored.
+;* The last two instructions are the frame's sound boundary.
+;* `UpdateSoundControlHW` copies the shadow registers
+;* `SoundControlA`/`SoundControlB` (`$438C`/`$438D`) out to the
+;* sound chips at `$6000` and `$6800`, and the tail jump into `UpdateSounds`
+;* then rebuilds those shadows for the next frame. That ordering — commit,
+;* then recompute — is what makes the shadow-register-plus-per-frame-reset model
+;* in the sound engine work.
+;*****************************************************************************
 L2739:
                        LD      A,(M4397)           ; 
                        AND     A                   ; updates the zero flag
@@ -6407,6 +6586,19 @@ L2739:
                        .ORG $2748
 ;*****************************************************************************
 ;* Add score values for enemies hit.
+;* The helper reads +0 and returns immediately unless it is exactly `1`,
+;* so points are awarded on the last frame of the death animation, not at the moment of the hit.
+;* It then reads the score byte at +1, returns if it is zero (already credited),
+;* and otherwise does this dance.
+;* For a score byte `$XY` the swap gives `$YX`, so `C` becomes `$Y0` and `B` becomes `$0X`.
+;* `AddToScore` adds `C` to the lowest two digits and `B` to the middle two,
+;* which means the credited value is `X*100 + Y*10` — in other words the stored byte times ten.
+;* A bird wing hit is allocated with `C = $02` at `$38EE`, which lands as 20 points.
+;* A byte of `$10` becomes 100, `$50` becomes 500. This ×10 encoding is why
+;* `AddToScore`'s own header comment talks about adding `BC*10`,
+;* even though the shift actually happens here in the caller.
+;* Finally the score byte is zeroed (so the same kill can't be paid twice
+;* while the counter sits at 1) and `$4397` is cleared to record that the score moved.
 ;*****************************************************************************
 L2748:
                        LD      A,(DE)              ; get $4370
@@ -6483,7 +6675,11 @@ L2768:
 
                        .ORG $27A8
 ;*****************************************************************************
-;* Update the sound control hardware registers
+;* Update the sound control hardware registers.
+;* Flushes two shadow bytes to hardware each frame and then re-arms them to silence.
+;* Two consequences drive everything below: an effect must be re-written every frame to sustain,
+;* and bits 7–6 of `SoundControlB` are not cleared by the flush,
+;* so they act as a latch for the melody/tune select.
 ;*****************************************************************************
 UpdateSoundControlHW:
                        LD      HL,SoundControlA    ; ..
@@ -6492,51 +6688,83 @@ UpdateSoundControlHW:
                        INC     L                   ; SoundControlB ..
                        LD      A,(HL)              ; .. to
                        LD      (SOUNDCTLB),A       ; 68xx sound B
-                       OR      $0F                 ; 0000_1111
+                       OR      $0F                 ; 0000_1111 $438D low nibble back to "no effect"
                        LD      (HL),A              ;
                        DEC     L                   ;
-                       LD      (HL),$0F            ; 0000_1111
+                       LD      (HL),$0F            ; 0000_1111 $438C fully reset
                        RET                         ;
 
                        .ORG $27BD
 ;*****************************************************************************
 ;* Sound for player bullet or ship explosion.
+;* Recall that `UpdateSoundControlHW` writes `$438C` to `$6000` and then resets it to `$0F` every frame,
+;* so anything here composes with whatever the higher-priority hit-sound chain already deposited this frame.
 ;*****************************************************************************
 L27BD:
                        LD      HL,ParticleExplosion
                        LD      A,(HL)              ;
                        AND     A                   ; updates the zero flag
-                       JP      NZ,L27E2            ; if player ship was hit.
+                       JP      NZ,L27E2            ; if ship or mothership destroyed
                        LD      L,$61               ; BulletTriggered
                        LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   ; 
+                       RET     Z                   ; nothing in flight
                        CP      $19                 ; 
-                       JP      NC,L27D8            ; if >= $19
+                       JP      NC,L27D8            ; first frame of a new shot
                        DEC     (HL)                ; 
                        LD      L,$8C               ; SoundControlA
                        LD      A,(HL)              ; 
                        OR      $40                 ; 0100_0000
-                       LD      (HL),A              ; set noise generator
+                       LD      (HL),A              ; set noise generator on
                        RET                         ; 
 
                        .ORG $27D8
+;*****************************************************************************
+;* Normalise the shot counter and hold one silent frame.
+;* `$4361` is seeded with `$30` at `$095E` when the player presses fire,
+;* the value doubles as a flag there, and `$30` is larger than the sound routine wants.
+;* This routine catches that on the very first frame, rewrites it as `$18`,
+;* and clears the noise-enable bit for that one frame.
+;* The effect is a normalisation plus a deliberate one-frame gap.
+;* From the next frame the counter is below `$19`, so the main path takes over:
+;* decrement, set bit 6, repeat. That gives 24 frames of noise per shot,
+;* and the silent frame in front guarantees the hardware sees a clean
+;* off-to-on transition even if a previous shot's noise was still asserted.
+;*****************************************************************************
 L27D8:
                        LD      (HL),$18            ; 0001_1000 frequency divider and sound variation speed
                        LD      L,$8C               ; SoundControlA
                        LD      A,(HL)              ; 
-                       AND     $BF                 ; 1011_1111
+                       AND     $BF                 ; 1011_1111 clear bit6
                        LD      (HL),A              ; clear noise generator
                        RET                         ; 
 
                        .ORG $27E2
 ;*****************************************************************************
 ;* Sound for player ship explosion.
+;* `$4363` is written from two places with deliberately different values:
+;* `$10` at `$0CD0` when the player ship is hit, and `$FF` at `$23D1`
+;* when the mothership particle explosion starts. `L27E2` clamps anything
+;* at or above `$40` down to `$40`, so the two events produce a 16-frame
+;* and a 64-frame sound respectively — the same effect, four times as long for the mothership.
+;* `L27E9` itself is trivial: count down and write a fixed `$8F`. Two details are worth noting.
+;* It is an unconditional `LD`, not an `OR`. Every other routine in the sound engine
+;* merges its bits into `SoundControlA` to preserve the upper control field.
+;* This one overwrites the byte outright, so an explosion in progress
+;* completely displaces whatever the hit-sound chain wrote earlier in the same frame.
+;* That is the effect's priority, expressed through the addressing mode rather than through a flag.
+;* And the counter contributes nothing to the sound's content — the value written never varies.
+;* So `$4363` is purely a duration. It is also the only place in the ROM that decrements it,
+;* which means the sound routine is what eventually clears the flag that `L27BD` tests
+;* to decide between the explosion and the bullet.
 ;*****************************************************************************
 L27E2:
                        CP      $40                 ; 
                        JP      C,L27E9             ; 
-                       LD      (HL),$40            ; 
+                       LD      (HL),$40            ; clamp
+;*****************************************************************************
+;* The explosion tone.
+;*****************************************************************************
 L27E9:
                        DEC     (HL)                ; 
                        LD      L,$8C               ; SoundControlA
@@ -6551,6 +6779,12 @@ L27E9:
 ; This is the character code to draw in each cell of the explosion field.
 ; Non zero bytes are the debris glyphs (`E0 E1 E2`, `C1 C2 C3`, `3D 3B 30 32 42 5A 4D 4F`, ...).
 ; `00` means "no particle in this cell".
+; The data model:
+; A particle burst is a fixed 16 * 16 cell field.
+; The tile table holds one byte per cell — which glyph lives at that position — and never changes.
+; The control table is a bitmap: 2 bytes per row × 16 rows = 32 bytes per frame,
+; so a 256-byte control page holds 8 animation frames.
+; Each bit says whether that cell is lit this frame.
 T2800:
                        .DB $00, $32, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $42, $42
                        .DB $00, $00, $00, $00, $00, $00, $00, $00, $00, $00, $E1, $00, $00, $E2, $00, $00
@@ -7411,7 +7645,7 @@ L3438:
                        CALL    DrawFirst4BirdObjects
                        CALL    L3560               ; Bird-launch setup
                        CALL    L3498               ; 
-                       CALL    L3930               ; 
+                       CALL    L3930               ; Bird bomb-drop dispatcher
                        JP      L0C40               ; EnemyBulletUpdate
 
                        .ORG $3452
@@ -7430,7 +7664,7 @@ L3462:
                        RET     C                   ; 
                        CALL    L0C40               ; EnemyBulletUpdate
                        CALL    L0FC0               ; Handle animations for killed aliens
-                       JP      L2204               ; 
+                       JP      L2204               ; Wave cleared, advance the level
 
                        .ORG $3474
 ;*****************************************************************************
@@ -7714,6 +7948,47 @@ L3586:
 ;* It reads the state index at record offset +0, then (crucially) advances `HL`
 ;* to offset +4 and passes that pointer along.
 ;* It then looks up `T3F00 + index*8` and pushes four 16 bit values, then does `RET`.
+;* In detail:
+;* Each frame, `L3498` and `L34AA` walk the eight bird records at `$4B70`...`$4BA8` and call `L35B0` on each.
+;* `L35B0` decrements the record's countdown and then performs a stack trick:
+;* A `T3F00` entry is eight bytes: two register pairs followed by two code addresses.
+;* The `RET` at `$35DB` enters the 2nd address with `HL` pointing at record+4 
+;* and four words still on the stack. When that routine returns,
+;* control falls through to the 1st address, which begins by unwinding what's left.
+;* So the convention is: a per-frame animator runs first with only `HL` set,
+;* then a state-machine step runs second with `HL`, `BC` and `DE` all loaded from the table.
+;* A single `RET` chains the two and delivers four constants, with no `CALL` and no register save.
+;* Three routines are state-machine steps; `L36C0` is an animator.
+;* 
+;* The bird record fields that matter here:
+;* 
+;* | Offset | Meaning                                              |
+;* |--------|------------------------------------------------------|
+;* | +0     | shape index — the growth stage                       |
+;* | +1, +2 | screen RAM address (MSB, LSB)                        |
+;* | +3     | animation phase, 0–7                                 |
+;* | +4     | countdown timer, decremented by `L35B0`              |
+;* | +5     | current position on the travel axis                  |
+;* | +6     | movement step: bits 3–0 = magnitude, bit 4 = reverse |
+;* | +7     | target position                                      |
+;* 
+;* `DrawBirdObject` selects the graphic with `index*8 + phase` masked by `$7E`, indexing `T3E08`.
+;* The mask pairs adjacent phases, so each stage has four shapes.
+;* For stage 1 those are the "small star / medium star / big star / group of stars"
+;* entries at `$3E08`–`$3E0E`; later stages are the 3×2, 4×2 and 5×2 bird shapes.
+;* Position advances by the step each frame; every 8 units the phase wraps
+;* and the screen address moves by `$20`, one cell.
+;* `T3F00` pairs `L35E0` with shape indices 2, 3, 4, B, C, D, E and F — the stages that actually fly.
+;* 
+;* The state transition and movement handler:
+;* 
+;* | Situation:               | Forward leg:                   | Reverse leg:                   |
+;* |--------------------------|--------------------------------|--------------------------------|
+;* | Normal step              | `L35E0` adds                   | `L3628` subtracts              |
+;* | Cell crossed             | screen `-$20`, recompute speed | screen `+$20`, recompute speed |
+;* | Stayed in cell           | `L366A`                        | `L3695`                        |
+;* | Target reached           | `L3672`, leaves +6 = `$10`     | `L3695`, leaves +6 = `$00`     |
+;* | Restart from a zero step | `L366A` bumps +6 to 1          | `L3744` sets +6 = `$11`        |
 ;*****************************************************************************
 L35B0:
                        LD      A,(HL)              ; get index character block shape
@@ -7740,12 +8015,12 @@ L35BE:
                        LD      B,(HL)              ; +0,+1
                        INC     HL                  ; 
                        LD      C,(HL)              ; get 2nd byte
-                       PUSH    BC                  ; (2) push "BC constant"
+                       PUSH    BC                  ; (2) push table bytes 0,1
                        INC     HL                  ; +2,+3
                        LD      B,(HL)              ; get 3rd byte
                        INC     HL                  ; 
                        LD      C,(HL)              ; get 4rd byte
-                       PUSH    BC                  ; (3) push "DE constant"
+                       PUSH    BC                  ; (3) push table bytes 2,3
                        INC     HL                  ; +4,+5
                        LD      B,(HL)              ; get MSB of 1st address
                        INC     HL                  ; 
@@ -7768,14 +8043,23 @@ L35BE:
 ;*****************************************************************************
 
                        .ORG $35E0
-; called by $35B0
+;*****************************************************************************
+;* The forward-leg mover.
+;* called by $35B0
+;* It adds the step to +5 and +3 and subtracts `$20` from the screen address.
+;* It parks a bird in the `$10` state when it reaches its target.
+;* If +5 and +7 match it jumps to `L3672`, which chooses a fresh target from `PlayerShipX` and `$436D`,
+;* leaving +6 at `$10`. Otherwise `$361A` immediately overwrites +6 with a computed step.
+;* So `L3744` fires on precisely the one frame after a bird finishes a leg of its flight and is handed a new destination
+;* — it restarts the motion and steps the bird across the character-row boundary in the same breath.
+;*****************************************************************************
 L35E0:
                        INC     L                   ; -> +5
                        INC     L                   ; -> +6
                        LD      A,(HL)              ; A = $4B76 (step)
                        CP      $10                 ; 
-                       JP      NC,L3628            ; step >= $10 -> special handling
-                       LD      B,A                 ; 
+                       JP      NC,L3628            ; bit4 set -> reverse-direction mover
+                       LD      B,A                 ; B = step
                        DEC     L                   ; -> +5 (grid X)
                        ADD     A,(HL)              ; 
                        LD      (HL),A              ; grid X += step
@@ -7785,47 +8069,66 @@ L35E0:
                        ADD     A,(HL)              ; 
                        LD      (HL),A              ; animation phase += step
                        CP      $08                 ; 
-                       JP      C,L366A             ; 
+                       JP      C,L366A             ; stayed inside the cell
                        AND     $07                 ; 0000_0111
                        LD      (HL),A              ; phase wraps mod 8
-                       DEC     L                   ; 
+                       DEC     L                   ; +2
                        LD      A,(HL)              ; 
                        SUB     $20                 ; 
-                       LD      (HL),A              ; 
+                       LD      (HL),A              ; screen address -= $20
                        JP      NC,L3604            ; 
                        DEC     L                   ; 
-                       DEC     (HL)                ; 
+                       DEC     (HL)                ; borrow into the MSB
                        INC     L                   ; 
+;*****************************************************************************
+;* Everything after `L3604` only runs on the frames where
+;* the bird actually crosses into a new character cell — which is where the interesting work lives.
+;* This is a small ease-in/ease-out speed controller. The remaining distance divided by eight
+;* gives a candidate step; if that is smaller than the current step the bird takes it
+;* and slows down as it closes on the target. Otherwise it ramps the step up
+;* by one per cell crossing until it matches `$436E`,
+;* the cruise speed that `L3560` loads per wave from `T3E80`.
+;* The `RRCA` triple followed by `AND $1F` is the usual Z80 idiom for a logical shift right by three,
+;* since `RRCA` rotates rather than shifts.
+;* Note the write of `$10` at `$360C` happens before the outcome is known.
+;* It is only left in place on the `L3672` path; every other path overwrites +6 a few instructions later,
+;* always with bit 4 clear so the forward direction persists.
+;*****************************************************************************
 L3604:
                        INC     L                   ; 
                        INC     L                   ; 
                        INC     L                   ; 
-                       LD      C,(HL)              ; 
+                       LD      C,(HL)              ; +5 current X
                        INC     L                   ; 
                        INC     L                   ; 
-                       LD      A,(HL)              ; 
-                       DEC     L                   ; 
-                       LD      (HL),$10            ; 
+                       LD      A,(HL)              ; +7 target X
+                       DEC     L                   ; +6
+                       LD      (HL),$10            ; provisionally stall in reverse
                        SUB     C                   ; 
-                       JP      Z,L3672             ; 
+                       JP      Z,L3672             ; already there -> pick a new target
                        DEC     A                   ; 
                        RRCA                        ; 
                        RRCA                        ; 
-                       RRCA                        ; 
+                       RRCA                        ; distance / 8
                        AND     $1F                 ; 0001_1111
                        CP      B                   ; 
                        INC     A                   ; 
                        LD      (HL),A              ; 
-                       RET     C                   ; 
+                       RET     C                   ; new step smaller than the old -> decelerate
                        LD      A,(M436E)           ; target count
-                       LD      (HL),A              ; 
+                       LD      (HL),A              ; otherwise aim for the wave's cruise speed
                        CP      B                   ; 
                        RET     Z                   ; 
                        INC     B                   ; 
-                       LD      (HL),B              ; 
+                       LD      (HL),B              ; not there yet -> ramp up by one
                        RET                         ; 
 
                        .ORG $3628
+;*****************************************************************************
+;* `L3628` subtracts the step and adds `$20`.
+;* `L3628` masks the step out and vectors here when it is zero — that is,
+;* when Bird movement step byte is exactly `$10`: reverse direction, but no distance to travel.
+;*****************************************************************************
 L3628:
                        AND     $0F                 ; 0000_1111
                        JP      Z,L3744             ; 
@@ -7851,166 +8154,274 @@ L3628:
                        INC     (HL)                ; 
                        INC     L                   ; 
 L3648:
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       INC     L                   
-                       INC     L                   
-                       SUB     (HL)                
-                       RRCA                        
-                       RRCA                        
-                       RRCA                        
-                       AND     $1F                 
-                       CP      B                   
-                       INC     A                   
-                       DEC     L                   
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      A,(HL)              ; 
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       SUB     (HL)                ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       RRCA                        ; 
+                       AND     $1F                 ; 
+                       CP      B                   ; 
+                       INC     A                   ; 
+                       DEC     L                   ; 
                        JP      C,L3663             ; 
                        LD      A,(M436E)           ; 
-                       CP      B                   
+                       CP      B                   ; 
                        JP      Z,L3663             ; 
-                       LD      A,B                 
-                       INC     A                   
+                       LD      A,B                 ; 
+                       INC     A                   ; 
 L3663:
-                       OR      $10                 
-                       LD      (HL),A              
-                       RET                         
+                       OR      $10                 ; 
+                       LD      (HL),A              ; 
+                       RET                         ; 
 
                        .ORG $366A
-;
+;*****************************************************************************
+;* Restart a stalled bird.
+;* Reached when the phase advance did not cross a cell.
+;* Almost every frame this returns immediately. It only does anything when the step was zero,
+;* in which case nothing moved at all — position, phase and screen address were all left untouched,
+;* and the bird would sit frozen forever. Incrementing +6 to 1 gets it going again on the next frame.
+;* This is the forward-direction counterpart of `L3744`. Both exist to break a zero step out of deadlock.
+;* `L3744` has more work to do because in the reverse branch a zero step also implies a pending cell crossing,
+;* whereas here no boundary was reached.
+;*****************************************************************************
 L366A:
-                       LD      A,B                 
+                       LD      A,B                 ; 
                        AND     A                   ; updates the zero flag
-                       RET     NZ                  
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       INC     (HL)                
-                       RET                         
-;
+                       RET     NZ                  ; step was nonzero -> nothing to do
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; +6
+                       INC     (HL)                ; kick the step to 1
+                       RET                         ; 
+
+;*****************************************************************************
+;* Choose a new target at the near end.
+;* Reached from `$360F` when the bird's position equals its target.
+;* Two mechanisms are at work. Taking the minimum of the bird's own position
+;* and `PlayerShipX` makes the new target home toward the player without ever being placed beyond him.
+;* Subtracting `$436D`, which advances by 8 on every call and is re-seeded each frame
+;* by `L3560` from `T3E80` plus a random component, fans successive birds out to different depths
+;* rather than sending the whole flock to one spot.
+;* The floor of 8 is applied twice — once for arithmetic underflow,
+;* once for a legitimately small result — so the target can never land at zero.
+;* Remember that `L35E0` already stored `$10` in +6 before jumping here,
+;* so the bird leaves this routine stalled with the reverse bit set.
+;* `L3628` picks that up next frame and vectors to `L3744`, which restarts it travelling the other way.
+;*****************************************************************************
 L3672:
-                       DEC     L                   
-                       LD      B,(HL)              
-                       INC     L                   
-                       INC     L                   
+                       DEC     L                   ; +5
+                       LD      B,(HL)              ; B = where the bird is now
+                       INC     L                   ; 
+                       INC     L                   ; +7
                        LD      A,(PlayerShipX)     ; 
-                       AND     $F8                 
-                       CP      B                   
+                       AND     $F8                 ; 1111_1000 snap to an 8-unit boundary
+                       CP      B                   ; 
                        JP      NC,L3680            ; 
-                       LD      B,A                 
+                       LD      B,A                 ; B = min(bird, player)
 L3680:
-                       LD      A,(M436D)           ; 
-                       LD      C,A                 
-                       ADD     $08                 
-                       LD      (M436D),A           ; 
-                       LD      A,B                 
-                       SUB     C                   
-                       LD      (HL),$08            
-                       RET     C                   
-                       CP      $08                 
-                       RET     C                   
-                       LD      (HL),A              
-                       RET                         
+                       LD      A,(M436D)           ; current X for this bird
+                       LD      C,A                 ; C = the old spread offset
+                       ADD     $08                 ; next bird is 8 px over
+                       LD      (M436D),A           ; bump it for the next bird
+                       LD      A,B                 ; 
+                       SUB     C                   ; 
+                       LD      (HL),$08            ; default target
+                       RET     C                   ; underflowed -> keep the default
+                       CP      $08                 ; 
+                       RET     C                   ; below 8 -> keep the default
+                       LD      (HL),A              ; 
+                       RET                         ; 
 
                        .ORG $3695
-;
+;*****************************************************************************
+;* Arrive and turn around at the far end.
+;* Reached from `$3637` in the reverse mover when the step did not cross a cell.
+;* This is `L3672` mirrored. Where `L3672` took the minimum against the player
+;* and subtracted the spread offset, clamping at a floor of 8, this takes the maximum and adds it,
+;* clamping at a ceiling of `$C8`. Between them the two routines bounce each bird
+;* back and forth across the play area, re-aiming at the player on every turn.
+;* The other half of the mirror is the direction handoff.
+;* `L3672` leaves +6 at `$10` — reverse, stalled — and `L3744` restarts it.
+;* `L3695` leaves +6 at `$00` — forward, stalled — and `L366A` restarts it.
+;* Same deadlock, opposite direction, different fixup routine.
+;* One structural asymmetry worth knowing when reading this code:
+;* the forward leg checks for target arrival only on frames where it crosses a cell boundary (from `$360F`),
+;* while the reverse leg checks only on frames where it does not (from `$3637`).
+;* The two legs are not straight mirrors of each other in control flow, only in effect.
+;*****************************************************************************
 L3695:
-                       INC     L                   
-                       INC     L                   
-                       LD      B,(HL)              
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       CP      B                   
-                       RET     NZ                  
-                       DEC     L                   
-                       LD      (HL),$00            
-                       INC     L                   
+                       INC     L                   ; 
+                       INC     L                   ; +5
+                       LD      B,(HL)              ; 
+                       INC     L                   ; 
+                       INC     L                   ; +7
+                       LD      A,(HL)              ; 
+                       CP      B                   ; 
+                       RET     NZ                  ; not there yet
+                       DEC     L                   ; +6
+                       LD      (HL),$00            ; step 0, and bit4 cleared -> forward again
+                       INC     L                   ; +7
                        LD      A,(PlayerShipX)     ; 
-                       AND     $F8                 
-                       CP      B                   
+                       AND     $F8                 ; 1111_1000
+                       CP      B                   ; 
                        JP      C,L36AB             ; 
-                       LD      B,A                 
-; for the mirrored launch direction.
+                       LD      B,A                 ; B = max(bird, player)
+;*****************************************************************************
+;* for the mirrored launch direction.
+;*****************************************************************************
 L36AB:
-                       LD      A,(M436D)           ; 
-                       ADD     $08                 
+                       LD      A,(M436D)           ; current X for this bird
+                       ADD     $08                 ; next bird 8 px over
                        LD      (M436D),A           ; 
-                       ADD     A,B                 
-                       LD      (HL),$C8            
-                       RET     C                   
-                       CP      $C8                 
-                       RET     NC                  
-                       LD      (HL),A              
-                       RET                         
+                       ADD     A,B                 ; 
+                       LD      (HL),$C8            ; default target
+                       RET     C                   ; overflowed -> keep the default
+                       CP      $C8                 ; 
+                       RET     NC                  ; above $C8 -> keep the default
+                       LD      (HL),A              ; 
+                       RET                         ; 
 
                        .ORG $36C0
+;*****************************************************************************
 ; called by $35B0
+; Advance the animation phase:
+; An "animator", entered with `HL` = record+4.
+; `RRCA` puts bit 0 of the countdown into carry, so the body runs only on frames
+; where the countdown is even — the phase advances every other frame.
+; Combined with the `AND $7E` in the shape lookup, which holds each graphic
+; across two consecutive phases, every shape is displayed for four frames
+; and a full four-shape cycle takes 16 frames.
+; Note what it does not do: unlike `L35E0`, it never adjusts the screen address
+; when the phase wraps from 7 back to 0. That is correct here, because `L36C0`
+; is used by the stages that animate in place — the hatching sparkle and
+; the stationary growth stages — rather than the ones that fly.
+;*****************************************************************************
 L36C0:
-                       LD      A,(HL)              ;
-                       RRCA                        ;
-                       RET     C                   ;
-                       DEC     L                   
-                       LD      A,(HL)              
-                       INC     A                   
-                       AND     $07                 
-                       LD      (HL),A              
-                       RET                         
+                       LD      A,(HL)              ; +4 countdown
+                       RRCA                        ; 
+                       RET     C                   ; odd frame -> do nothing
+                       DEC     L                   ; +3
+                       LD      A,(HL)              ; 
+                       INC     A                   ; 
+                       AND     $07                 ; 0000_0111
+                       LD      (HL),A              ; 
+                       RET                         ; 
 
                        .ORG $36CC
-; called by $35B0
+;*****************************************************************************
+;* called by $35B0
+;* Terminal stage, no transition:
+;* Nothing but the mandatory unwind. It exists because every dispatch pushes four words
+;* and something has to remove three of them before returning to `L35B0`'s caller.
+;* Omitting the pops would leave the stack unbalanced and `RET` into garbage.
+;* It is used by shape indices `$C` and `$D`, whose `T3F00` data bytes are all `$FF`.
+;* Those are the fully-grown adult birds: they pair `L36CC` with `L35E0` as the animator,
+;* so they fly normally but never mature any further.
+;*****************************************************************************
 L36CC:
-                       POP     DE                  
-                       POP     BC                  
-                       POP     HL                  
-                       RET                         
+                       POP     DE                  ; D,E = table bytes 2,3
+                       POP     BC                  ; B,C = table bytes 0,1
+                       POP     HL                  ; HL  = record+4
+                       RET                         ; 
 
                        .ORG $36D2
-; called by $35B0
+;*****************************************************************************
+;* called by $35B0
+;* Timed growth transition:
+;* When the countdown reaches zero the bird is promoted: the countdown is reloaded
+;* from table byte 0 and the shape index at +0 is replaced with table byte 2.
+;* Everything about the transition — how long the stage lasts and what it becomes,
+;* lives in the table, so this one routine serves every stage that uses it.
+;* 
+;* It drives the early growth chain:
+;* 
+;* | Stage                 | Duration     | Becomes | Animator |
+;* |-----------------------|--------------|---------|----------|
+;* | 1 (star sparkle, 2×2) | `$20` frames | 2       | `L36C0`  |
+;* | 2 (3×2)               | `$20` frames | 3       | `L35E0`  |
+;* | 3 (3×2)               | `$30` frames | 4       | `L35E0`  |
+;*****************************************************************************
 L36D2:
-                       POP     DE                  ; DE = the "DE constant" (+2,+3)
-                       POP     BC                  ; BC = the "BC constant" (+0,+1)
+                       POP     DE                  ; D = next shape index
+                       POP     BC                  ; B = countdown reload
                        POP     HL                  ; HL = bird record + 4
                        LD      A,(HL)              ; ...operate on the bird
                        AND     A                   ; updates the zero flag
-                       RET     NZ                  ; 
-                       LD      (HL),B              ; 
+                       RET     NZ                  ; still counting down
+                       LD      (HL),B              ; reload the countdown
+                       DEC     L                   ; walk back to +0
                        DEC     L                   ; 
                        DEC     L                   ; 
                        DEC     L                   ; 
-                       DEC     L                   ; 
-                       LD      (HL),D              ; 
-                       LD      A,(M4368)           ; maturity of the birds
+                       LD      (HL),D              ; promote to the next stage
+                       LD      A,(M4368)           ; {ram.M4368} maturity of the birds
                        OR      $01                 ; 0000_0001
-                       LD      (M4368),A           ; 
+                       LD      (M4368),A           ; {ram.M4368}
                        RET                         ; 
 
                        .ORG $36EA
-; called by $35B0
+;*****************************************************************************
+;* called by $35B0
+;* Growth transition gated on movement:
+;* Structurally identical to `L36D2` with one extra guard: the low nibble of the movement byte
+;* at +6 must also be zero. That nibble is the per-frame step size, so a value of zero means
+;* the bird has finished its current leg of travel. The effect is that
+;* these later stages will not change shape mid-flight — the bird completes its movement, and only then grows.
+;* 
+;* The transitions it drives, again all table-supplied:
+;* 
+;* | Stage | Duration | Becomes | Animator |
+;* |-------|----------|---------|----------|
+;* | 4     | `$10`    | 5       | `L35E0`  |
+;* | 5     | `$10`    | 6       | `L36C0`  |
+;* | 8     | `$40`    | 4       | `L36C0`  |
+;* | 9     | `$10`    | 8       | `L36C0`  |
+;* | B     | `$10`    | A       | `L35E0`  |
+;* | E     | `$10`    | 6       | `L35E0`  |
+;* 
+;* Stages 8 and 9 fold back into the main chain rather than advancing,
+;* so the table encodes a graph rather than a simple ladder.
+;* One observation on `$4368`:
+;* Each of the transition routines OR-s a distinct bit into `$4368`,
+;* `$01` from `L36D2`,
+;* `$02` from `L36EA`,
+;* `$04` and `$08` from `L370A`
+;* just past the end of this range.
+;* The sound engine clears the byte at `$3A39` when a bonus explosion preempts lower-priority sounds.
+;* Those five sites are the only references to `$4368` in the entire ROM,
+;* Nothing ever tests it. It is a write-only status byte — presumably it once gated a sound or animation
+;* and the consumer was removed, leaving both the four OR-s and the defensive clear behind.
+;*****************************************************************************
 L36EA:
-                       POP     DE                  
-                       POP     BC                  
-                       POP     HL                  
-                       LD      A,(HL)              
+                       POP     DE                  ; 
+                       POP     BC                  ; 
+                       POP     HL                  ; HL = record+4
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       RET     NZ                  
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       AND     $0F                 
-                       RET     NZ                  
-                       DEC     L                   
-                       DEC     L                   
-                       LD      (HL),B              
-                       DEC     L                   
-                       DEC     L                   
-                       DEC     L                   
-                       DEC     L                   
-                       LD      (HL),D              
-                       LD      A,(M4368)           ; 
-                       OR      $02                 
+                       RET     NZ                  ; countdown not expired
+                       INC     L                   ; +5
+                       INC     L                   ; +6
+                       LD      A,(HL)              ; movement step byte
+                       AND     $0F                 ; 0000_1111
+                       RET     NZ                  ; mid-flight -> wait
+                       DEC     L                   ; 
+                       DEC     L                   ; back to +4
+                       LD      (HL),B              ; reload the countdown
+                       DEC     L                   ; walk back to +0
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       DEC     L                   ; 
+                       LD      (HL),D              ; promote
+                       LD      A,(M4368)           ; maturity of the birds
+                       OR      $02                 ; 0000_0010
                        LD      (M4368),A           ; 
-                       RET                         
+                       RET                         ; 
 
                        .ORG $370A
 ;*****************************************************************************
@@ -8084,66 +8495,116 @@ L370A:
                        RET                         ; 
 
                        .ORG $3744
+;*****************************************************************************
+;* Bird cell-crossing kick-start:
+;* 
+;* Reminder, The bird object record.
+;* Birds live in eight 8-byte records at `$4B70`, `$4B78` ... `$4BA8`.
+;* Piecing the layout together from `DrawBirdObject` (`$34C0`), `L35B0` and `L35E0`:
+;* | Offset | Meaning                                                                              |
+;* |--------|--------------------------------------------------------------------------------------|
+;* | +0     | shape / animation index; `0` = slot unused                                           |
+;* | +1     | screen RAM address MSB                                                               |
+;* | +2     | screen RAM address LSB                                                               |
+;* | +3     | fine sub-cell phase, 0–7 (combined as `index*8 + phase` to pick the character block) |
+;* | +4     | countdown timer, decremented by `L35B0`                                              |
+;* | +5     | current X position                                                                   |
+;* | +6     | movement step byte                                                                   |
+;* | +7     | target X position                                                                    |
+;* 
+;* Compare that against the generic `L3628` body with `B = 1` and a starting phase of 0:
+;* subtract 1 from +5, subtract 1 from +3 which borrows, mask to `AND $07` giving 7,
+;* then bump the screen address by `$20` with carry. `L3744` is that exact sequence unrolled,
+;* with the borrow taken as a given rather than tested — which is why it writes `$07` as a literal instead of computing it.
+;* The reason a special case exists at all is the write on the first line.
+;* A step of zero would leave the bird permanently frozen, so the routine re-seeds +6 to `$11`
+;* and performs the one-unit move itself. From the next frame onward the bird takes the normal `L3628` path.
+;*****************************************************************************
 L3744:
-                       LD      (HL),$11            
-                       DEC     L                   
-                       DEC     (HL)                
-                       DEC     L                   
-                       DEC     L                   
-                       LD      (HL),$07            
-                       DEC     L                   
-                       LD      A,(HL)              
-                       ADD     $20                 
-                       LD      (HL),A              
-                       RET     NC                  
-                       DEC     L                   
-                       INC     (HL)                
-                       RET                         
+                       LD      (HL),$11            ; +6 = reverse, step 1
+                       DEC     L                   ; +5
+                       DEC     (HL)                ; X -= 1
+                       DEC     L                   ; +4
+                       DEC     L                   ; +3
+                       LD      (HL),$07            ; sub-cell phase wraps to 7
+                       DEC     L                   ; +2
+                       LD      A,(HL)              ; 
+                       ADD     $20                 ; 
+                       LD      (HL),A              ; screen address down one row
+                       RET     NC                  ; 
+                       DEC     L                   ; +1
+                       INC     (HL)                ; carry into the MSB
+                       RET                         ; 
 
                        .ORG $3758
-;
+;*****************************************************************************
+;* Bonus explosion animation driver:
+;* The `$4378`/`$437C` pair carries a score, giving the game two simultaneous bonus explosions.
+;* Layout, confirmed by the seeding code at `L3906`:
+;* 
+;* | Offset | Meaning                                       |
+;* |--------|-----------------------------------------------|
+;* | +0     | animation counter, doubles as the in-use flag |
+;* | +1     | two-digit BCD score value                     |
+;* | +2     | screen RAM address MSB (where the bullet hit) |
+;* | +3     | screen RAM address LSB                        |
+;* 
+;* Seeding always passes the counter in `B` and the score in `C`:
+;* - `$0C1B` — `LD DE,$1020`, an alien killed on movement-pattern value `$07`/`$08`, worth 200
+;* - `$3868` — `LD BC,$1010`, a bird killed, worth 100
+;* The counter starts at `$10`, so each animation runs 16 frames.
+;* Two things happen here. First, the counter's low bit alternates the frame
+;* between drawing the explosion and calling `L37B0` to print the score in the middle of it,
+;* that alternation is the flicker you see on the bonus number.
+;* Second, the expansion offset is `($0F - counter) & $0E` scaled by 16.
+;* As the counter falls the offset grows in steps of `$20`,
+;* and the two halves are drawn symmetrically about the impact point.
+;* Both halves are bounds-checked before drawing.
+;* `L3796` tests against `$BCC0` and returns on carry, the right half tests `$BFA0` and returns on no-carry.
+;* So an explosion near a screen edge simply drops the off-screen half rather than corrupting memory.
+;*****************************************************************************
 L3758:
-                       LD      A,(HL)              
+                       LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       RET     Z                   ; if 0
-                       DEC     (HL)                
-                       JP      Z,L37CC             ; 
-                       LD      A,(HL)              
-                       RRCA                        
-                       JP      NC,L37B0            ; Prints the score value in the middle of the bonus explosion
-                       LD      A,$0F               
-                       SUB     (HL)                
+                       RET     Z                   ; slot idle
+                       DEC     (HL)                ; 
+                       JP      Z,L37CC             ; last frame -> tear down
+                       LD      A,(HL)              ; 
+                       RRCA                        ; 
+                       JP      NC,L37B0            ; even frame -> Prints the score value in the middle of the bonus explosion
+                       LD      A,$0F               ; 
+                       SUB     (HL)                ; 
                        AND     $0E                 ; mask out 0000_1110
                        RLCA                        ; Multiply by 16 ..
                        RLCA                        ; ..
                        RLCA                        ; ..
                        RLCA                        ; ..
-                       INC     L                   
-                       INC     L                   
-                       LD      D,(HL)              
-                       INC     L                   
-                       LD      E,(HL)              
-                       PUSH    AF                  
-                       PUSH    DE                  
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       LD      D,(HL)              ; 
+                       INC     L                   ; 
+                       LD      E,(HL)              ; 
+                       PUSH    AF                  ; 
+                       PUSH    DE                  ; 
                        LD      BC,$FFDF            ; Screen offset constant -33 right one column (-1), up one row (-32)
-                       CALL    L3796               ; left part of bonus explosion animation
-                       POP     DE                  
-                       POP     AF                  
-                       CPL                         
-                       LD      L,A                 
-                       LD      H,$FF               
-                       INC     HL                  
-                       ADD     HL,DE               
-                       EX      DE,HL               
-                       LD      HL,$BFA0            
-                       ADD     HL,DE               
-                       RET     NC                  
-                       EX      DE,HL               
+                       CALL    L3796               ; left half:  address + offset + $60, shape T17D0
+                       POP     DE                  ; 
+                       POP     AF                  ; 
+                       CPL                         ; negate the offset
+                       LD      L,A                 ; 
+                       LD      H,$FF               ; 
+                       INC     HL                  ; 
+                       ADD     HL,DE               ; right half: address - offset, shape T17D6
+                       EX      DE,HL               ; 
+                       LD      HL,$BFA0            ; 
+                       ADD     HL,DE               ; 
+                       RET     NC                  ; 
+                       EX      DE,HL               ; 
                        LD      DE,T17D6            ; (Bonus explosion right part)
-                       LD      (HL),$00            
-                       INC     HL                  
-                       LD      (HL),$00            
-                       ADD     HL,BC               
+                       LD      (HL),$00            ; 
+                       INC     HL                  ; 
+                       LD      (HL),$00            ; 
+                       ADD     HL,BC               ; 
                        JP      Draw3x2             ; 
 
                        .ORG $3796
@@ -8191,26 +8652,41 @@ L37B0:
                        JP      PrintNumber         ; score value for bonus explosion
 
                        .ORG $37CC
-;
+;*****************************************************************************
+;* Bonus explosion teardown:
+;* Note the effective stride. `INC HL` followed by `ADD HL,BC` with `BC = -33` nets -32 per iteration,
+;* not -33 — the `-1` in the constant is consumed by the `INC HL` that writes the second cell.
+;* So each pass blanks two horizontally adjacent cells and then moves up one row.
+;* The geometry falls out cleanly. The foreground playfield is `$4000`–`$433F`:
+;* 32 bytes per row * 26 rows = `$340`. Starting at `$4320 + column` puts you on the bottom row,
+;* and 26 iterations (`$1A`) walk all the way to `$4000 + column` on the top row.
+;* So this routine erases a two-column-wide, full-height vertical strip of the foreground layer,
+;* at whatever column the explosion happened to occupy. That is far more than the animation actually touched.
+;* The design choice is deliberate:
+;* rather than track which cells the expanding halves and the score digits dirtied over 16 frames,
+;* the halves move by `$20` per step and the digits are drawn at a shifting offset,
+;* the teardown just wipes the whole column pair unconditionally.
+;* It costs 52 stores once per explosion and guarantees nothing is left behind.
+;*****************************************************************************
 L37CC:
-                       INC     L                   
-                       INC     L                   
-                       INC     L                   
-                       LD      A,(HL)              
-                       AND     $1F                 
-                       ADD     $20                 
-                       LD      L,A                 
-                       LD      H,$43               
+                       INC     L                   ; 
+                       INC     L                   ; 
+                       INC     L                   ; +3, screen RAM LSB
+                       LD      A,(HL)              ; 
+                       AND     $1F                 ; 0001_1111 column within the row
+                       ADD     $20                 ; 
+                       LD      L,A                 ; 
+                       LD      H,$43               ; -> $4320 + column = bottom row
                        LD      BC,$FFDF            ; Screen offset constant -33 right one column (-1), up one row (-32)
-                       LD      DE,$001A            
+                       LD      DE,$001A            ; D = 0 (fill byte), E = 26 rows
 L37DD:
-                       LD      (HL),D              
-                       INC     HL                  
-                       LD      (HL),D              
-                       ADD     HL,BC               
-                       DEC     E                   
+                       LD      (HL),D              ; 
+                       INC     HL                  ; 
+                       LD      (HL),D              ; 
+                       ADD     HL,BC               ; 
+                       DEC     E                   ; 
                        JP      NZ,L37DD            ; 
-                       RET                         
+                       RET                         ; 
 
                        .ORG $3800
 ;*****************************************************************************
@@ -8643,15 +9119,40 @@ UpdateSounds:
                        LD      L,$8D               ; set SoundControlB for...
                        LD      (HL),$CF            ; ... 1100_1111 triggers Tune3 -- ESTUDIO (Phoenix theme song)
                        RET                         ; 
-;
+
+;*****************************************************************************
+;* Bonus-explosion sound, and head of the enemy-hit priority chain.
+;* Trigger `$4369` is seeded with `$FF` at exactly two places, both scoring events:
+;* - `$0C1E` — an alien is destroyed while its movement-pattern value is `$07`/`$08`, worth a bonus explosion score of 200
+;* - `$3863` — a bird is destroyed, worth a bonus explosion score of 100
+;* Duration and tone. The `$FF` seed is clamped to `$20` on the first frame, so the effect always runs 32 frames
+;* (about 0.53 s at 60 Hz). Each frame the counter is decremented and the effect code derived as `(n << 2) & $0E`.
+;* Because the shift is by 2, the surviving bits 3–1 track only bits 1–0 of the counter,
+;* so the code cycles `$E -> $A -> $6 -> $2` every four frames — a fast warble repeated eight times across the effect.
+;* The `NOP` at `$3A30` sits exactly where a third `RLCA` would go; the analogous enemy-hit code at `$3A50` has `RRCA; NOP; NOP`.
+;* Both look like pitch tuning patched directly into the ROM.
+;* Priority arbitration. This is the routine's second and less obvious job.
+;* Three destruction sounds compete, and `L3A1D` is the head of a fall-through chain that guarantees only one plays per frame.
+;* 
+;* | Priority | Flag                    | Routine | Output          |
+;* |----------|-------------------------|---------|-----------------|
+;* | 1        | `$4369` bonus explosion | `L3A1D` | `SoundControlB` |
+;* | 2        | `$4364` enemy hit       | `L3A40` | `SoundControlA` |
+;* | 3        | `$4366` bird wing hit   | `L3A62` | `SoundControlA` |
+;* 
+;* When a bonus explosion is active it doesn't merely take the channel — it actively clears `$4368`
+;* (the "maturity of the birds" bitfield that `$36DE`/`$36FE`/`$371E`/`$3736` OR their flags into) and `$4366`,
+;* discarding any pending lower-priority events rather than deferring them.
+;* `L3A40` does the same to `$4366` one level down.
+;*****************************************************************************
 L3A1D:
-                       LD      HL,M4369            ; 
+                       LD      HL,M4369            ; bonus explosion flag / counter
                        LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       JP      Z,L3A40             ; if $4369 is 0.
+                       JP      Z,L3A40             ; nothing pending -> enemy hit sound
                        CP      $20                 ; 
                        JP      C,L3A2C             ; 
-                       LD      (HL),$20            ; 
+                       LD      (HL),$20            ; clamp the $FF seed to 32 frames
 L3A2C:
                        DEC     (HL)                ; 
                        LD      A,(HL)              ; 
@@ -8703,13 +9204,13 @@ L3A62:
                        LD      A,(HL)              ; get flag 'bird wing hit detected'
                        AND     A                   ; updates the zero flag
                        RET     Z                   ; if not set.
-                       CP      $10                 
+                       CP      $10                 ; 
                        JP      C,L3A78             ; 
-                       LD      (HL),$10            
+                       LD      (HL),$10            ; 
                        LD      A,(LevelAndRound)   ; 
                        AND     $08                 ; 0000_1000
                        JP      Z,L3A78             ; 
-                       LD      (HL),$05            
+                       LD      (HL),$05            ; 
 L3A78:
                        DEC     (HL)                ; 
                        LD      L,$8C               ; SoundControlA
@@ -8718,23 +9219,41 @@ L3A78:
                        OR      $04                 ; 0000_0100
                        LD      (HL),A              ; bird wing hit sound
                        RET                         ; 
-;
+
+;*****************************************************************************
+;* Melody timeout.
+;* `Counter9A` (`$439A`) is the high byte of a 16-bit free-running frame counter.
+;* the vblank handler bumps the low byte at `$439B` through `AddOneToMem`, which carries into `$439A`.
+;* Both bytes are zeroed on phase transitions (`$04BD`–`$04C2`) and by the block clear at `$32B8`,
+;* so the pair measures elapsed time within the current game phase rather than since power-on.
+;* Since the hardware flush preserves bits 7–6 of `SoundControlB`,
+;* a tune latched there — the `$CF` "ESTUDIO" theme written at `$3A1A`,
+;* or the mothership-score tune at `$3925` — would otherwise play indefinitely.
+;* This routine is what ends it: once the high byte reaches 3,
+;* i.e. 3 × 256 = 768 frames (roughly 12.8 s at 60 Hz) into the phase, the melody bits are masked off.
+;* Worth noting that the test is `>=`, not `==`. After the deadline the clear runs every frame,
+;* so it also prevents any new melody from latching until the counter is reset by the next phase change.
+;* It's a watchdog, not a one-shot.
+;*****************************************************************************
 L3A82:
                        LD      HL,Counter9A        ; 
-                       LD      A,(HL)              
-                       CP      $03                 
-                       RET     C                   
+                       LD      A,(HL)              ; 
+                       CP      $03                 ; 
+                       RET     C                   ; under 768 frames -> let the tune play
                        LD      L,$8D               ; SoundControlB
-                       LD      A,(HL)              
-                       AND     $3F                 ; 0011_1111
+                       LD      A,(HL)              ; 
+                       AND     $3F                 ; 0011_1111 clear bits 7-6 -> stop melody
                        LD      (HL),A              ; stop melody
-                       RET                         
-;
+                       RET                         ; 
+
+;*****************************************************************************
+;* Trigger melody
+;*****************************************************************************
 L3A90:
                        LD      HL,M436B            ; Flag for: 'mother ship score display' ($FF) and counter
                        LD      A,(HL)              ; 
                        AND     A                   ; updates the zero flag
-                       JP      L3923               ; 
+                       JP      L3923               ; Trigger the melody chip
 
 ;*****************************************************************************
 ;* Background sound for the alien waves.
@@ -8779,6 +9298,7 @@ L3ABF:
                        .ORG $3AD0
 ;*****************************************************************************
 ;* Background sound for the bird waves:
+;* It writes a two-tone alternation every frame and maintains a beat counter.
 ;* Counts frames for the current tone;
 ;* it's compared against a per-phase duration taken from `T3DE0`
 ;* (indexed by the formation scroll phase `B4BD6`),
@@ -8788,38 +9308,47 @@ L3AD0:
                        LD      HL,M438E            ; Bird-wave background-sound phase
                        LD      A,(HL)              ; 
                        AND     $01                 ; 0000_0001 phase bit
-                       RLCA                        ; Multiply by 4 ..
-                       RLCA                        ; ..
-                       OR      $20                 ; 0010_0000
+                       RLCA                        ; -> 0 or 4
+                       RLCA                        ; 
+                       OR      $20                 ; 0010_0000 effect code $20 or $24
                        LD      B,A                 ; 
                        DEC     L                   ; 
                        LD      A,(HL)              ; $438D SoundControlB
-                       AND     $C0                 ; 1100_0000
+                       AND     $C0                 ; 1100_0000 keep the melody latch
                        OR      B                   ; set bits
                        LD      (HL),A              ; at SoundControlB
                        LD      L,$96               ; $4396 bird-wave background-sound step timer
                        LD      A,(HL)              ; 
                        INC     (HL)                ; tick
                        AND     A                   ; updates the zero flag
-                       JP      Z,L3AF8             ; 
+                       JP      Z,L3AF8             ; counter had wrapped -> beat
                        LD      A,(B4BD6)           ; combined scroll-phase + active-bird center index (0–31)
-                       ADD     $E0                 ; LSB of table T3DE0 Background sound data for the bird waves.
+                       ADD     $E0                 ; LSB of T3DE0 (bird background sound)
                        LD      E,A                 ; 
-                       LD      D,$3D               ; MSB of table T3DE0 Background sound data for the bird waves.
-                       LD      A,(DE)              ; 
+                       LD      D,$3D               ; MSB of T3DE0 (bird background sound)
+                       LD      A,(DE)              ; beat period
                        CP      (HL)                ; reached this note's duration?
-                       RET     NC                  ; 
-                       LD      (HL),$00            ; reset -> advance tone phase
+                       RET     NC                  ; period not reached yet
+                       LD      (HL),$00            ; wrap, so next frame beats
                        RET                         ; 
 
                        .ORG $3AF8
-;
+;*****************************************************************************
+;* Bird-wave background sound beat handler.
+;* So `L3AF8` is the accent on each beat. It does two things:
+;* Advances `$438E`, whose bit 0 selects which of the two tones `L3AD0` emits on subsequent frames,
+;* and ORs bit 4 into `SoundControlB` for this one frame, turning the `$20`/`$24` that
+;* `L3AD0` wrote a few instructions earlier into `$30`/`$34`. The ordering matters — 
+;* `L3AD0` writes first, `L3AF8` decorates.
+;* Tempo. The beat period comes from `T3DE0` (`$3DE0`–`$3DFF`), 32 entries indexed by `$4BD6`,
+;* which is kept in range by the `AND $1F` at `$26F5`.
+;*****************************************************************************
 L3AF8:
                        LD      L,$8E               ; $438E Bird-wave background-sound phase/state
-                       INC     (HL)                ; advance the tone phase
+                       INC     (HL)                ; flip the tone phase
                        DEC     L                   ; SoundControlB
                        LD      A,(HL)              ; 
-                       OR      $10                 ; set 0001_0000
+                       OR      $10                 ; 0001_0000 accent bit on top of the $20/$24 just written
                        LD      (HL),A              ; at SoundControlB
                        RET                         ; 
 
@@ -8832,7 +9361,7 @@ L3B02:
                        LD      HL,Counter9A        ; 
                        LD      A,(HL)              ; 
                        CP      $02                 ; 
-                       RET     NC                  ; 
+                       RET     NC                  ; under 512 frames -> let the tune play
                        INC     L                   ; 
                        LD      A,(HL)              ; get Counter9A+1
                        LD      B,A                 ; 
@@ -8888,6 +9417,7 @@ L3B33:
                        .ORG $3B43
 ;*****************************************************************************
 ;* Update all synth sounds and melody triggers.
+;* The per-frame driver.
 ;*****************************************************************************
 L3B43:
                        LD      HL,GameState        ; 
@@ -8896,10 +9426,10 @@ L3B43:
                        CALL    Z,L23D6             ; if yes, do the background sound.
                        CALL    L3B33               ; Sound for 'Bonus live added'.
                        CALL    L3B1B               ; Ringtone sound for the player shield.
-                       CALL    L3A1D               ; 
+                       CALL    L3A1D               ; Bonus-explosion sound, and head of the enemy-hit priority chain
                        CALL    L27BD               ; Sound for player bullet or ship explosion.
-                       CALL    L3A82               ; 
-                       JP      L3A90               ; Trigger melody
+                       CALL    L3A82               ; Melody timeout
+                       JP      L3A90               ; Mothership score / melody trigger
 
                        .ORG $3B60
 ; Per-character horizontal hit-mask table for bird collision used at $3844.
@@ -9009,6 +9539,11 @@ T3DC0:
 
 ; Background sound data for the bird waves.
 ; Slowly ascending and descending tones.
+; The values are frame counts, dropping from `$40`
+; (64 frames, roughly a one-second alternation) at the low end to `$02`
+; (2 frames, a near-audio-rate buzz) at the top.
+; As `$4BD6` climbs, the two-tone warble accelerates smoothly
+; — that's the rising swoop that tracks the bird wave's progress.
 T3DE0:
                        .DB $40, $40, $40, $40, $40, $40, $40, $34, $2C, $26, $20, $1C, $18, $14, $12, $0F
                        .DB $0D, $0B, $09, $08, $07, $06, $05, $04, $03, $02, $02, $02, $02, $02, $02, $02
@@ -9211,76 +9746,76 @@ T3F00:
                        .DB $FF, $FF,        ; not used
 ; for bird index to character block shape (1)
                        .DB $20, $FF, $02, $FF   ;BC and DE register contents
-                       .DW L36D2         ;address to call (a state transition handler)
-                       .DW L36C0         ;address to call (a movement/animation handler)
+                       .DW L36D2         ;address to call: (a state transition handler) "Timed growth transition"
+                       .DW L36C0         ;address to call: (a movement/animation handler) "Advance the animation phase"
 ; for bird index to character block shape (2)
                        .DB $20, $FF, $03, $FF   ;BC and DE register contents
-                       .DW L36D2         ;address
-                       .DW L35E0         ;address
+                       .DW L36D2         ;address to call: "Timed growth transition"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 ; for bird index to character block shape (3)
                        .DB $30, $FF, $04, $FF   ;BC and DE register contents
-                       .DW L36D2         ;address
-                       .DW L35E0         ;address
+                       .DW L36D2         ;address to call: "Timed growth transition"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 ; for bird index to character block shape (4)
                        .DB $10, $FF, $05, $FF   ;BC and DE register contents
-                       .DW L36EA         ;address
-                       .DW L35E0         ;address
+                       .DW L36EA         ;address to call: "Growth transition gated on movement"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 ; for bird index to character block shape (5)
                        .DB $10, $FF, $06, $FF   ;BC and DE register contents
-                       .DW L36EA         ;address
-                       .DW L36C0         ;address
+                       .DW L36EA         ;address to call: "Growth transition gated on movement"
+                       .DW L36C0         ;address to call: "Advance the animation phase"
 ; for bird index to character block shape (6)
                        .DB $10, $60, $07, $1F   ;BC and DE register contents
-                       .DW L370A         ;address
-                       .DW L36C0         ;address
+                       .DW L370A         ;address to call: "This bird has finished growing one stage"
+                       .DW L36C0         ;address to call: "Advance the animation phase"
 ; for bird index to character block shape (7)
                        .DB $F0, $10, $0B, $1A   ;BC and DE register contents
-                       .DW L370A         ;address
-                       .DW L36C0         ;address
+                       .DW L370A         ;address to call: "This bird has finished growing one stage"
+                       .DW L36C0         ;address to call: "Advance the animation phase"
 ; for bird index to character block shape (8)
                        .DB $40, $FF, $04, $FF   ;BC and DE register contents
-                       .DW L36EA,        ;address
-                       .DW L36C0         ;address
+                       .DW L36EA,        ;address to call: "Growth transition gated on movement"
+                       .DW L36C0         ;address to call: "Advance the animation phase"
 ; for bird index to character block shape (9)
                        .DB $10, $FF, $08, $FF   ;BC and DE register contents
-                       .DW L36EA         ;address
-                       .DW L36C0         ;address
+                       .DW L36EA         ;address to call: "Growth transition gated on movement"
+                       .DW L36C0         ;address to call: "Advance the animation phase"
 ; for bird index to character block shape (A)
                        .DB $40, $10, $0F, $17   ;BC and DE register contents
-                       .DW L370A         ;address
-                       .DW L36C0         ;address
+                       .DW L370A         ;address to call: "This bird has finished growing one stage"
+                       .DW L36C0         ;address to call: "Advance the animation phase"
 ; for bird index to character block shape (B)
                        .DB $10, $FF, $0A, $FF   ;BC and DE register contents
-                       .DW L36EA         ;address
-                       .DW L35E0         ;address
+                       .DW L36EA         ;address to call: "Growth transition gated on movement"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 ; for bird index to character block shape (C)
                        .DB $FF, $FF, $FF, $FF   ;BC and DE register contents
-                       .DW L36CC         ;address
-                       .DW L35E0         ;address
+                       .DW L36CC         ;address to call: "Terminal stage, no transition"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 ; for bird index to character block shape (D)
                        .DB $FF, $FF, $FF, $FF   ;BC and DE register contents
-                       .DW L36CC         ;address
-                       .DW L35E0         ;address
+                       .DW L36CC         ;address to call: "Terminal stage, no transition"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 ; for bird index to character block shape (E)
                        .DB $10, $FF, $06, $FF   ;BC and DE register contents
-                       .DW L36EA         ;address
-                       .DW L35E0         ;address
+                       .DW L36EA         ;address to call: "Growth transition gated on movement"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 ; for bird index to character block shape (F)
                        .DB $10, $10, $07, $79   ;BC and DE register contents
-                       .DW L370A         ;address
-                       .DW L35E0         ;address
+                       .DW L370A         ;address to call: "This bird has finished growing one stage"
+                       .DW L35E0         ;address to call: "The forward-leg mover"
 
 ;
 ;level 3 and 8 initial data for the 8 birds.
 ;data will be copied to $4B70-$4BAF
-;..........................:index to first character block shape
+;..........................:index to first character block shape / animation index
 ;...............................:MSB of initial screen address
 ;....................................:LSB of the initial screen address
 ;.........................................:animation phase / current shape frame
 ;..............................................:movement-step countdown timer
 ;...................................................: grid coordinate x
 ;........................................................:horizontal movement step (velocity)
-;.............................................................: grid coordinate y
+;.............................................................: target x position
 T3F80:
                        .DB $01, $48, $EE, $00, $10, $B0, $10, $20       ; 0
                        .DB $01, $49, $2C, $00, $10, $A0, $00, $B0       ; 1
